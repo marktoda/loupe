@@ -34,11 +34,13 @@ fn highlight_text(text: &str, query: &str, base_style: Style) -> Vec<Span<'stati
     spans
 }
 
-pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
+pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: bool) {
+    let border_color = if focused { Color::Blue } else { Color::Gray };
+    let title = if focused { " Transcript (Tab) " } else { " Transcript " };
     let block = Block::default()
-        .title(" Transcript ")
+        .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(border_color));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -49,7 +51,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
             "Select a run"
         };
         let p = Paragraph::new(msg)
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center);
         frame.render_widget(p, inner);
         return;
@@ -57,7 +59,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
 
     if run.items.is_empty() {
         let p = Paragraph::new("Parsing...")
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center);
         frame.render_widget(p, inner);
         return;
@@ -130,7 +132,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                     ),
                     Span::styled(name.to_string(), Style::default().fg(Color::Red)),
                     Span::raw("  "),
-                    Span::styled(summary.clone(), Style::default().fg(Color::DarkGray)),
+                    Span::styled(summary.clone(), Style::default().fg(Color::Gray)),
                 ]));
 
                 if app.expanded_tools.contains(&i)
@@ -142,7 +144,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                             Span::raw("         "),
                             Span::styled(
                                 format!("│ {json_line}"),
-                                Style::default().fg(Color::DarkGray),
+                                Style::default().fg(Color::Gray),
                             ),
                         ]));
                     }
@@ -161,20 +163,20 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                 if parent_expanded && let Some(content_text) = content {
                     lines.push(Line::from(vec![
                         Span::raw("         "),
-                        Span::styled("┌─ result ─", Style::default().fg(Color::DarkGray)),
+                        Span::styled("┌─ result ─", Style::default().fg(Color::Gray)),
                     ]));
                     for content_line in content_text.lines().take(20) {
                         lines.push(Line::from(vec![
                             Span::raw("         "),
                             Span::styled(
                                 format!("│ {content_line}"),
-                                Style::default().fg(Color::DarkGray),
+                                Style::default().fg(Color::Gray),
                             ),
                         ]));
                     }
                     lines.push(Line::from(vec![
                         Span::raw("         "),
-                        Span::styled("└──────────", Style::default().fg(Color::DarkGray)),
+                        Span::styled("└──────────", Style::default().fg(Color::Gray)),
                     ]));
                 }
             }
@@ -198,7 +200,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                     Span::styled("  ├─     ", Style::default().fg(Color::Yellow)),
                     Span::styled(
                         format!("{tool}  {description}"),
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(Color::Gray),
                     ),
                 ]));
             }
@@ -212,7 +214,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                     Span::styled("  └─     ", Style::default().fg(Color::Yellow)),
                     Span::styled(
                         format!("{status} · {summary} · {cost}"),
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(Color::Gray),
                     ),
                 ]));
                 lines.push(Line::default());
@@ -228,10 +230,10 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
             }
             TranscriptItem::SystemEvent { label, detail } => {
                 lines.push(Line::from(vec![
-                    Span::styled("SYSTEM   ", Style::default().fg(Color::DarkGray)),
+                    Span::styled("SYSTEM   ", Style::default().fg(Color::Gray)),
                     Span::styled(
                         format!("{label}: {detail}"),
-                        Style::default().fg(Color::DarkGray),
+                        Style::default().fg(Color::Gray),
                     ),
                 ]));
             }

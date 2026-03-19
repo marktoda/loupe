@@ -11,6 +11,8 @@ use crate::events::ViewMode;
 use ratatui::prelude::*;
 
 pub fn render_app(frame: &mut Frame, app: &mut App) {
+    use crate::events::FocusPane;
+
     let size = frame.area();
     let show_sidebar = size.width >= 80;
 
@@ -27,10 +29,10 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
             .constraints([Constraint::Length(22), Constraint::Min(1)])
             .split(vertical[0]);
 
-        run_list::render_run_list(frame, horizontal[0], app);
-        render_main_viewer(frame, horizontal[1], app);
+        run_list::render_run_list(frame, horizontal[0], app, app.focus == FocusPane::RunList);
+        render_main_viewer(frame, horizontal[1], app, app.focus == FocusPane::MainViewer);
     } else {
-        render_main_viewer(frame, vertical[0], app);
+        render_main_viewer(frame, vertical[0], app, true);
     }
 
     // Status bar or search bar
@@ -45,10 +47,11 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
     }
 }
 
-fn render_main_viewer(frame: &mut Frame, area: Rect, app: &mut App) {
+fn render_main_viewer(frame: &mut Frame, area: Rect, app: &mut App, focused: bool) {
     match app.view_mode {
-        ViewMode::Transcript => transcript::render_transcript(frame, area, app),
-        ViewMode::Tools => tools_view::render_tools(frame, area, app),
-        ViewMode::Raw => raw_view::render_raw(frame, area, app),
+        ViewMode::Transcript => transcript::render_transcript(frame, area, app, focused),
+        ViewMode::Tools => tools_view::render_tools(frame, area, app, focused),
+        ViewMode::Raw => raw_view::render_raw(frame, area, app, focused),
     }
 }
+

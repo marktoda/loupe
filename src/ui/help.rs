@@ -1,9 +1,11 @@
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 pub fn render_help(frame: &mut Frame, area: Rect) {
-    // Popup dimensions — kept within 60x24 for small terminals
-    let popup = centered_rect(58, 24, area);
+    // Size the popup to fit, but cap at terminal size
+    let width = 58.min(area.width.saturating_sub(4));
+    let height = 28.min(area.height.saturating_sub(2));
+    let popup = centered_rect(width, height, area);
     frame.render_widget(Clear, popup);
 
     let text = vec![
@@ -82,7 +84,7 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
         ]),
         Line::from(vec![
             Span::styled("    n / N         ", Style::default().fg(Color::Cyan)),
-            Span::raw("Next / Previous search match"),
+            Span::raw("Next / Prev search match"),
         ]),
         Line::from(""),
         Line::from(vec![Span::styled(
@@ -93,16 +95,16 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
         )]),
         Line::from(vec![
             Span::styled("    Enter         ", Style::default().fg(Color::Cyan)),
-            Span::raw("Keep highlights, close search"),
+            Span::raw("Keep highlights, close"),
         ]),
         Line::from(vec![
             Span::styled("    Esc           ", Style::default().fg(Color::Cyan)),
-            Span::raw("Clear highlights, close search"),
+            Span::raw("Clear highlights, close"),
         ]),
         Line::from(""),
         Line::from(vec![Span::styled(
             "         Press any key to close",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(Color::Gray),
         )]),
     ];
 
@@ -113,7 +115,8 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow)),
         )
-        .style(Style::default().fg(Color::White));
+        .style(Style::default().fg(Color::White))
+        .wrap(Wrap { trim: false });
     frame.render_widget(help, popup);
 }
 

@@ -3,7 +3,7 @@ use crate::run::RunStatus;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
 
-pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App) {
+pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App, focused: bool) {
     let items: Vec<ListItem> = app
         .runs
         .iter()
@@ -12,7 +12,7 @@ pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App) {
                 RunStatus::Running => ("●", Style::default().fg(Color::Green)),
                 RunStatus::Completed => ("✓", Style::default().fg(Color::Green)),
                 RunStatus::Failed => ("✗", Style::default().fg(Color::Red)),
-                RunStatus::Unknown => ("?", Style::default().fg(Color::DarkGray)),
+                RunStatus::Unknown => ("?", Style::default().fg(Color::Gray)),
             };
 
             let name = run
@@ -48,7 +48,7 @@ pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App) {
                 Span::raw("   "),
                 Span::styled(
                     format!("{duration} {status_label}"),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(Color::Gray),
                 ),
             ]);
 
@@ -59,14 +59,17 @@ pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App) {
     let mut state = ListState::default();
     state.select(app.selected_run);
 
+    let border_color = if focused { Color::Blue } else { Color::Gray };
+    let title = if focused { " Runs (Tab) " } else { " Runs " };
+
     let list = List::new(items)
         .block(
             Block::default()
-                .title(" Runs ")
+                .title(title)
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(Style::default().fg(border_color)),
         )
-        .highlight_style(Style::default().bg(Color::Rgb(30, 30, 50)));
+        .highlight_style(Style::default().bg(Color::Rgb(30, 30, 60)));
 
     frame.render_stateful_widget(list, area, &mut state);
 }

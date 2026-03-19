@@ -83,7 +83,7 @@ pub fn parse_line(line: &str) -> ParseResult {
 }
 
 /// Truncate a string to at most `max` bytes, respecting UTF-8 char boundaries.
-fn truncate_str(s: &str, max: usize) -> &str {
+pub fn truncate_str(s: &str, max: usize) -> &str {
     if s.len() <= max {
         return s;
     }

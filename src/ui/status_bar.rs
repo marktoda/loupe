@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::events::ViewMode;
+use crate::events::{FocusPane, ViewMode};
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
 
@@ -34,8 +34,13 @@ pub fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
 
     let follow_str = if app.auto_follow { "follow" } else { "" };
 
+    let focus_str = match app.focus {
+        FocusPane::RunList => "runs",
+        FocusPane::MainViewer => "viewer",
+    };
+
     let text = format!(
-        " {mode_str} | {run_count} runs | {duration_str} | {cost_str} | {follow_str} | / search  ? help  q quit"
+        " {mode_str} | {run_count} runs | {duration_str} | {cost_str} | {follow_str} | [{focus_str}] Tab switch | / search  ? help  q quit"
     );
 
     let bar = Paragraph::new(text).style(Style::default().bg(Color::DarkGray).fg(Color::White));
