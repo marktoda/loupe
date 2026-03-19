@@ -104,7 +104,7 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
         Line::from(""),
         Line::from(vec![Span::styled(
             "         Press any key to close",
-            Style::default().fg(Color::Gray),
+            Style::default().add_modifier(Modifier::DIM),
         )]),
     ];
 

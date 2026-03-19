@@ -12,7 +12,7 @@ pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App, focused: bo
                 RunStatus::Running => ("●", Style::default().fg(Color::Green)),
                 RunStatus::Completed => ("✓", Style::default().fg(Color::Green)),
                 RunStatus::Failed => ("✗", Style::default().fg(Color::Red)),
-                RunStatus::Unknown => ("?", Style::default().fg(Color::Gray)),
+                RunStatus::Unknown => ("?", Style::default().add_modifier(Modifier::DIM)),
             };
 
             let name = run
@@ -48,7 +48,7 @@ pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App, focused: bo
                 Span::raw("   "),
                 Span::styled(
                     format!("{duration} {status_label}"),
-                    Style::default().fg(Color::Gray),
+                    Style::default().add_modifier(Modifier::DIM),
                 ),
             ]);
 
@@ -59,17 +59,24 @@ pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App, focused: bo
     let mut state = ListState::default();
     state.select(app.selected_run);
 
-    let border_color = if focused { Color::Blue } else { Color::Gray };
-    let title = if focused { " Runs (Tab) " } else { " Runs " };
+    let border_style = if focused {
+        Style::default().fg(Color::Blue)
+    } else {
+        Style::default().add_modifier(Modifier::DIM)
+    };
 
     let list = List::new(items)
         .block(
             Block::default()
-                .title(title)
+                .title(" Runs ")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(border_color)),
+                .border_style(border_style),
         )
-        .highlight_style(Style::default().bg(Color::Rgb(30, 30, 60)));
+        .highlight_style(
+            Style::default()
+                .add_modifier(Modifier::REVERSED)
+                .add_modifier(Modifier::BOLD),
+        );
 
     frame.render_stateful_widget(list, area, &mut state);
 }

@@ -4,17 +4,22 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
 pub fn render_tools(frame: &mut Frame, area: Rect, app: &App, focused: bool) {
-    let border_color = if focused { Color::Blue } else { Color::Gray };
-    let title = if focused { " Tools (Tab) " } else { " Tools " };
+    let border_style = if focused {
+        Style::default().fg(Color::Blue)
+    } else {
+        Style::default().add_modifier(Modifier::DIM)
+    };
     let block = Block::default()
-        .title(title)
+        .title(" Tools ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(border_color));
+        .border_style(border_style);
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
+    let dim = Style::default().add_modifier(Modifier::DIM);
+
     let Some(run) = app.selected_run() else {
-        let p = Paragraph::new("No run selected").style(Style::default().fg(Color::Gray));
+        let p = Paragraph::new("No run selected").style(dim);
         frame.render_widget(p, inner);
         return;
     };
@@ -26,7 +31,7 @@ pub fn render_tools(frame: &mut Frame, area: Rect, app: &App, focused: bool) {
                 let name_col = format!("{name:<16}");
                 tool_lines.push(Line::from(vec![
                     Span::styled(name_col, Style::default().fg(Color::Magenta)),
-                    Span::styled(summary.clone(), Style::default().fg(Color::White)),
+                    Span::styled(summary.clone(), Style::default()),
                 ]));
             }
             TranscriptItem::ToolResult {
@@ -34,8 +39,8 @@ pub fn render_tools(frame: &mut Frame, area: Rect, app: &App, focused: bool) {
             } => {
                 let name_col = format!("{:<16}", format!("  ↳ {tool_name}"));
                 tool_lines.push(Line::from(vec![
-                    Span::styled(name_col, Style::default().fg(Color::Gray)),
-                    Span::styled(summary.clone(), Style::default().fg(Color::Gray)),
+                    Span::styled(name_col, dim),
+                    Span::styled(summary.clone(), dim),
                 ]));
             }
             TranscriptItem::SubagentStart { description, .. } => {
@@ -57,7 +62,7 @@ pub fn render_tools(frame: &mut Frame, area: Rect, app: &App, focused: bool) {
                 let prefix = format!("{:<16}", format!("  ├─ {tool}"));
                 tool_lines.push(Line::from(vec![
                     Span::styled(prefix, Style::default().fg(Color::Yellow)),
-                    Span::styled(description.clone(), Style::default().fg(Color::Gray)),
+                    Span::styled(description.clone(), dim),
                 ]));
             }
             TranscriptItem::SubagentEnd {
@@ -71,10 +76,7 @@ pub fn render_tools(frame: &mut Frame, area: Rect, app: &App, focused: bool) {
                         format!("{:<16}", "  └─"),
                         Style::default().fg(Color::Yellow),
                     ),
-                    Span::styled(
-                        format!("{status}: {summary}{cost}"),
-                        Style::default().fg(Color::Gray),
-                    ),
+                    Span::styled(format!("{status}: {summary}{cost}"), dim),
                 ]));
             }
             _ => {}
@@ -83,7 +85,7 @@ pub fn render_tools(frame: &mut Frame, area: Rect, app: &App, focused: bool) {
 
     if tool_lines.is_empty() {
         let p = Paragraph::new("No tool calls in this run")
-            .style(Style::default().fg(Color::Gray))
+            .style(dim)
             .alignment(Alignment::Center);
         frame.render_widget(p, inner);
         return;

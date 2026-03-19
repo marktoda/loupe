@@ -40,9 +40,10 @@ pub fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
     };
 
     let text = format!(
-        " {mode_str} | {run_count} runs | {duration_str} | {cost_str} | {follow_str} | [{focus_str}] Tab switch | / search  ? help  q quit"
+        " {mode_str} | {run_count} runs | {duration_str} | {cost_str} | {follow_str} | [{focus_str}] Tab | / search  ? help  q quit"
     );
 
-    let bar = Paragraph::new(text).style(Style::default().bg(Color::DarkGray).fg(Color::White));
+    // Reversed style = terminal's bg becomes fg and vice versa. Always readable.
+    let bar = Paragraph::new(text).style(Style::default().add_modifier(Modifier::REVERSED));
     frame.render_widget(bar, area);
 }
