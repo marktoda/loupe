@@ -209,10 +209,23 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
         }
     }
 
-    let total_lines = lines.len() as u16;
-    let visible_height = inner.height;
-    if app.auto_follow && total_lines > visible_height {
-        app.scroll_offset = (total_lines - visible_height) as usize;
+    // Estimate wrapped line count: each Line that's wider than inner.width
+    // adds extra rows. This is approximate (doesn't account for word boundaries)
+    // but good enough for scroll positioning.
+    let width = inner.width as usize;
+    let wrapped_total: usize = lines
+        .iter()
+        .map(|line| {
+            if width == 0 {
+                return 1;
+            }
+            let line_width: usize = line.spans.iter().map(|s| s.content.len()).sum();
+            1.max(line_width.div_ceil(width))
+        })
+        .sum();
+
+    if app.auto_follow && wrapped_total > inner.height as usize {
+        app.scroll_offset = wrapped_total - inner.height as usize;
     }
 
     let paragraph = Paragraph::new(lines)
