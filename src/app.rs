@@ -42,6 +42,7 @@ impl App {
                 self.runs.push(Run::new(run_id, path));
                 if self.auto_follow {
                     self.selected_run = Some(run_id);
+                    self.expanded_tools.clear();
                 }
             }
             AppEvent::RunUpdated {
@@ -217,9 +218,15 @@ impl App {
                 KeyCode::Char('g') => {
                     if !self.runs.is_empty() {
                         self.selected_run = Some(0);
+                        self.auto_follow = true;
+                        self.expanded_tools.clear();
                     }
                 }
-                KeyCode::Char('G') => self.selected_run = self.runs.len().checked_sub(1),
+                KeyCode::Char('G') => {
+                    self.selected_run = self.runs.len().checked_sub(1);
+                    self.auto_follow = true;
+                    self.expanded_tools.clear();
+                }
                 KeyCode::Char('f') => {
                     self.jump_to_active_run();
                     self.auto_follow = true;
@@ -286,7 +293,8 @@ impl App {
         }
         let current = self.selected_run.unwrap_or(0);
         self.selected_run = Some((current + 1).min(self.runs.len() - 1));
-        self.scroll_offset = 0;
+        // Jump to bottom of new run (auto_follow will position on next render)
+        self.auto_follow = true;
         self.expanded_tools.clear();
     }
 
@@ -296,7 +304,7 @@ impl App {
         }
         let current = self.selected_run.unwrap_or(0);
         self.selected_run = Some(current.saturating_sub(1));
-        self.scroll_offset = 0;
+        self.auto_follow = true;
         self.expanded_tools.clear();
     }
 
