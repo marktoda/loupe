@@ -1,32 +1,98 @@
 # loupe
 
-TUI viewer for Claude Code JSONL streams.
+A terminal viewer for [Claude Code](https://claude.ai/claude-code) sessions.
+
+Point it at a directory of JSONL logs from `claude --output-format stream-json` and get a navigable, searchable transcript — assistant text, tool calls, subagent activity, costs, and errors, rendered in real time as the session runs.
+
+Built for overnight autonomous loops where you want to check in on progress, scroll through history, and search across runs without parsing raw JSON.
+
+```
+loupe ./autoroute/logs/
+```
+
+```
+┌ Runs ──────────────┐┌ Transcript ──────────────────────────────────────────┐
+│ ✓ session-0319a    ││ SESSION  claude-opus-4-6 · 14 tools                  │
+│   21m ok           ││                                                      │
+│                    ││ ASSIST   Starting the autoroute loop. Let me read    │
+│ ✓ session-0319b    ││          the context files first.                    │
+│   18m ok           ││                                                      │
+│                    ││ TOOL     Read  autoroute/program.md                  │
+│ ✗ session-0319c    ││ TOOL     Read  autoroute/SUMMARY.md                  │
+│   2m failed        ││                                                      │
+│                    ││ AGENT    Iteration 12: residual capacity...           │
+│ ● session-0319d    ││   ├─    Read  src/routing/ssp/mod.rs                 │
+│   running          ││   ├─    Edit  src/routing/ssp/mod.rs                 │
+│                    ││   └─    completed · 4m · 9 tools                     │
+│                    ││                                                      │
+│                    ││ ASSIST   Results: composite 20.485 (+15 bps).▌       │
+├────────────────────┤├──────────────────────────────────────────────────────┤
+│ 4 runs │ 12m05s │ $4.82 │ follow  [viewer] Tab  / search  ? help  q quit │
+└────────────────────┘└──────────────────────────────────────────────────────┘
+```
 
 ## Install
 
 ```bash
+# From source
 cargo install --path .
+
+# Nix
+nix build github:toda/loupe
+# or add to your flake inputs
 ```
 
 ## Usage
 
 ```bash
-loupe <directory>
+# Watch a log directory
+loupe path/to/logs/
+
+# Typical setup: run your loop in one pane, loupe in another
+scripts/autoroute-loop.sh &
+loupe autoroute/logs/
 ```
 
-Point at a directory containing `.jsonl` files from `claude --output-format stream-json`.
+Loupe watches the directory for `.jsonl` files. Each file is a run. New files and appends are picked up automatically — no restart needed.
+
+The JSONL format is what Claude Code produces with `--output-format stream-json --verbose --include-partial-messages`. Streaming text appears token-by-token with a `▌` cursor; completed messages replace the partial when done.
 
 ## Keybindings
 
 | Key | Action |
 |-----|--------|
-| `q` / `Ctrl-c` | Quit |
-| `Tab` | Switch pane focus |
-| `1` / `2` / `3` | Transcript / Tools / Raw view |
-| `j` / `k` | Scroll / Select |
-| `g` / `G` | Top / Bottom |
-| `/` | Search |
-| `n` / `N` | Next / Previous match |
-| `Enter` | Expand tool detail |
-| `f` | Follow live run |
+| `Tab` | Switch focus between run list and transcript |
+| `j`/`k`, arrows | Scroll transcript or select run (depends on focus) |
+| `g`/`G` | Jump to top / bottom |
+| `f` | Follow mode — stick to the latest output |
+| `Enter` | Expand/collapse tool call details |
+| `/` | Search within current run |
+| `n`/`N` | Next / previous match |
 | `?` | Help |
+| `q` | Quit |
+
+## How it works
+
+Loupe is a viewer, not a process manager. It doesn't spawn Claude — your existing scripts do that. Loupe watches the output.
+
+Two async tasks feed a render loop:
+
+- A **file watcher** (via `notify`) detects new and modified `.jsonl` files, incrementally parses them, and sends structured events through a channel.
+- A **crossterm event stream** captures keyboard input.
+
+The main loop receives both, updates state, and renders at 10fps with a dirty flag so idle CPU is near zero.
+
+Parsing has two tiers: **Tier 1** (stateless) reconstructs the full transcript from `system`, `assistant`, `user`, and `result` events. **Tier 2** (stateful) buffers `stream_event` text deltas for live token streaming on the active run.
+
+## Run status
+
+| Icon | Meaning |
+|------|---------|
+| `●` | Running — receiving events |
+| `✓` | Completed — session exited cleanly |
+| `✗` | Failed — session exited with an error |
+| `?` | Unknown — no result event (killed session, or stale >60s) |
+
+## License
+
+MIT
