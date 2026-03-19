@@ -1,2 +1,9 @@
 /target
-result/
+result
+.devenv/
+.devenv.flake.nix
+.direnv/
+.envrc
+devenv.lock
+devenv.nix
+devenv.yaml

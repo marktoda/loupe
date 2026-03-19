@@ -3,6 +3,8 @@ name = "loupe"
 version = "0.1.0"
 edition = "2024"
 description = "TUI viewer for Claude Code JSONL streams"
+license = "MIT"
+repository = "https://github.com/toda/loupe"
 
 [dependencies]
 ratatui = "0.29"

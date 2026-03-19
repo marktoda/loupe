@@ -17,6 +17,14 @@ fn highlight_text(text: &str, query: &str, base_style: Style) -> Vec<Span<'stati
 
     for (start, _) in text_lower.match_indices(&query_lower as &str) {
         let end = start + query_lower.len();
+        // Skip matches whose byte offsets don't land on char boundaries in the
+        // original text (can happen when lowercasing changes byte length, e.g. ß→ss).
+        if !text.is_char_boundary(start)
+            || !text.is_char_boundary(end)
+            || !text.is_char_boundary(last_end)
+        {
+            continue;
+        }
         if start > last_end {
             spans.push(Span::styled(text[last_end..start].to_string(), base_style));
         }
@@ -29,7 +37,7 @@ fn highlight_text(text: &str, query: &str, base_style: Style) -> Vec<Span<'stati
         ));
         last_end = end;
     }
-    if last_end < text.len() {
+    if last_end < text.len() && text.is_char_boundary(last_end) {
         spans.push(Span::styled(text[last_end..].to_string(), base_style));
     }
     if spans.is_empty() {
@@ -254,6 +262,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
         app.scroll_offset = max_scroll;
     }
 
-    let paragraph = Paragraph::new(lines).scroll((app.scroll_offset as u16, 0));
+    let paragraph =
+        Paragraph::new(lines).scroll((app.scroll_offset.min(u16::MAX as usize) as u16, 0));
     frame.render_widget(paragraph, inner);
 }

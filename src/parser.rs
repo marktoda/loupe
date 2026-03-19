@@ -175,13 +175,6 @@ fn parse_system(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
                 .and_then(|s| s.as_str())
                 .unwrap_or("")
                 .to_string();
-            let cost_usd = v
-                .get("usage")
-                .and_then(|u| u.get("duration_ms"))
-                .and_then(|d| d.as_f64())
-                .map(|ms| ms / 1000.0 * 0.0); // estimate: None (cost unknown from duration alone)
-            // cost_usd is None — we don't have a reliable cost estimate from duration_ms alone
-            let _ = cost_usd;
             vec![TranscriptItem::SubagentEnd {
                 summary,
                 status,
