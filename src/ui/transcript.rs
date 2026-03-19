@@ -1,7 +1,9 @@
 use crate::app::App;
 use crate::run::TranscriptItem;
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Paragraph};
+
+const LABEL_WIDTH: usize = 9; // "ASSIST   " etc.
 
 /// Split `text` into styled spans, highlighting all case-insensitive occurrences of `query`.
 fn highlight_text(text: &str, query: &str, base_style: Style) -> Vec<Span<'static>> {
@@ -34,6 +36,32 @@ fn highlight_text(text: &str, query: &str, base_style: Style) -> Vec<Span<'stati
         spans.push(Span::styled(text.to_string(), base_style));
     }
     spans
+}
+
+/// Soft-wrap a string to fit within `max_cols` columns.
+/// Returns a vec of string slices, each fitting within the width.
+/// Uses char boundaries (not grapheme clusters) — good enough for terminal text.
+fn soft_wrap(text: &str, max_cols: usize) -> Vec<&str> {
+    if max_cols == 0 || text.is_empty() {
+        return vec![text];
+    }
+    let mut result = Vec::new();
+    let mut remaining = text;
+    while !remaining.is_empty() {
+        if remaining.chars().count() <= max_cols {
+            result.push(remaining);
+            break;
+        }
+        // Find the byte offset of the char at position max_cols
+        let byte_end = remaining
+            .char_indices()
+            .nth(max_cols)
+            .map(|(i, _)| i)
+            .unwrap_or(remaining.len());
+        result.push(&remaining[..byte_end]);
+        remaining = &remaining[byte_end..];
+    }
+    result
 }
 
 pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: bool) {
@@ -73,10 +101,12 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
     let search_active = app.search.highlights_visible && !app.search.query.is_empty();
     let query = app.search.query.clone();
 
-    // Styles — use terminal defaults + modifiers for theme compatibility
     let label_bold = |color: Color| Style::default().fg(color).add_modifier(Modifier::BOLD);
     let dim = Style::default().add_modifier(Modifier::DIM);
     let default = Style::default();
+
+    // Content area width for text wrapping (minus the 9-char label column)
+    let content_cols = (inner.width as usize).saturating_sub(LABEL_WIDTH);
 
     let mut lines: Vec<Line> = Vec::new();
 
@@ -98,19 +128,21 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 } else {
                     text.clone()
                 };
-                let text_lines: Vec<&str> = display.lines().collect();
-                for (li, line_text) in text_lines.iter().enumerate() {
-                    let content_spans = if search_active {
-                        highlight_text(line_text, &query, default)
-                    } else {
-                        vec![Span::styled(line_text.to_string(), default)]
-                    };
-                    if li == 0 {
-                        let mut spans = vec![Span::styled("ASSIST   ", label_bold(Color::Cyan))];
-                        spans.extend(content_spans);
-                        lines.push(Line::from(spans));
-                    } else {
-                        let mut spans = vec![Span::raw("         ")];
+                // Pre-wrap: split each source line to fit within content_cols
+                for (li, source_line) in display.lines().enumerate() {
+                    let wrapped = soft_wrap(source_line, content_cols);
+                    for (wi, chunk) in wrapped.iter().enumerate() {
+                        let content_spans = if search_active {
+                            highlight_text(chunk, &query, default)
+                        } else {
+                            vec![Span::styled(chunk.to_string(), default)]
+                        };
+                        let prefix = if li == 0 && wi == 0 {
+                            Span::styled("ASSIST   ", label_bold(Color::Cyan))
+                        } else {
+                            Span::raw("         ")
+                        };
+                        let mut spans = vec![prefix];
                         spans.extend(content_spans);
                         lines.push(Line::from(spans));
                     }
@@ -209,28 +241,19 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
         }
     }
 
-    // Estimate wrapped line count: each Line that's wider than inner.width
-    // adds extra rows. This is approximate (doesn't account for word boundaries)
-    // but good enough for scroll positioning.
-    let width = inner.width as usize;
-    let wrapped_total: usize = lines
-        .iter()
-        .map(|line| {
-            if width == 0 {
-                return 1;
-            }
-            let line_width: usize = line.spans.iter().map(|s| s.content.len()).sum();
-            1.max(line_width.div_ceil(width))
-        })
-        .sum();
+    // No Wrap — we pre-wrapped above, so lines.len() IS the rendered row count.
+    let total = lines.len();
+    let visible = inner.height as usize;
 
-    if app.auto_follow && wrapped_total > inner.height as usize {
-        app.scroll_offset = wrapped_total - inner.height as usize;
+    if app.auto_follow && total > visible {
+        app.scroll_offset = total - visible;
+    }
+    // Clamp scroll to valid range
+    let max_scroll = total.saturating_sub(visible);
+    if app.scroll_offset > max_scroll {
+        app.scroll_offset = max_scroll;
     }
 
-    let paragraph = Paragraph::new(lines)
-        .scroll((app.scroll_offset as u16, 0))
-        .wrap(Wrap { trim: false });
-
+    let paragraph = Paragraph::new(lines).scroll((app.scroll_offset as u16, 0));
     frame.render_widget(paragraph, inner);
 }
