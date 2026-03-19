@@ -167,7 +167,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                     Span::styled(summary.clone(), dim),
                 ]));
 
-                if app.expanded_tools.contains(&i)
+                if app.expanded
                     && let Some(input_val) = input
                 {
                     let json_str = serde_json::to_string_pretty(input_val).unwrap_or_default();
@@ -188,7 +188,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 let parent_expanded = (0..i)
                     .rev()
                     .find(|&j| matches!(&run.items[j], TranscriptItem::ToolUse { .. }))
-                    .is_some_and(|j| app.expanded_tools.contains(&j));
+                    .is_some_and(|_j| app.expanded);
 
                 if parent_expanded && let Some(content_text) = content {
                     lines.push(Line::from(vec![

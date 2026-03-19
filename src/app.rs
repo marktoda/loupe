@@ -3,8 +3,6 @@ use crate::run::{Run, RunStatus, TranscriptItem};
 use crate::ui::search::SearchState;
 use chrono::Utc;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::collections::HashSet;
-
 pub struct App {
     pub runs: Vec<Run>,
     pub selected_run: Option<usize>,
@@ -15,7 +13,7 @@ pub struct App {
     pub show_help: bool,
     pub should_quit: bool,
     pub dirty: bool,
-    pub expanded_tools: HashSet<usize>,
+    pub expanded: bool,
 }
 
 impl Default for App {
@@ -36,7 +34,7 @@ impl App {
             show_help: false,
             should_quit: false,
             dirty: true,
-            expanded_tools: HashSet::new(),
+            expanded: false,
         }
     }
 
@@ -46,7 +44,6 @@ impl App {
                 self.runs.push(Run::new(run_id, path));
                 if self.auto_follow {
                     self.selected_run = Some(run_id);
-                    self.expanded_tools.clear();
                 }
             }
             AppEvent::RunUpdated {
@@ -220,13 +217,11 @@ impl App {
                     if !self.runs.is_empty() {
                         self.selected_run = Some(0);
                         self.auto_follow = true;
-                        self.expanded_tools.clear();
                     }
                 }
                 KeyCode::Char('G') => {
                     self.selected_run = self.runs.len().checked_sub(1);
                     self.auto_follow = true;
-                    self.expanded_tools.clear();
                 }
                 KeyCode::Char('f') => {
                     self.jump_to_active_run();
@@ -259,7 +254,9 @@ impl App {
                     self.scroll_to_bottom();
                     self.auto_follow = true;
                 }
-                KeyCode::Enter => self.toggle_tool_expansion(),
+                KeyCode::Char('e') => {
+                    self.expanded = !self.expanded;
+                }
                 KeyCode::Char('f') => {
                     self.scroll_to_bottom();
                     self.auto_follow = true;
@@ -296,7 +293,6 @@ impl App {
         self.selected_run = Some((current + 1).min(self.runs.len() - 1));
         // Jump to bottom of new run (auto_follow will position on next render)
         self.auto_follow = true;
-        self.expanded_tools.clear();
     }
 
     fn select_prev_run(&mut self) {
@@ -306,7 +302,6 @@ impl App {
         let current = self.selected_run.unwrap_or(0);
         self.selected_run = Some(current.saturating_sub(1));
         self.auto_follow = true;
-        self.expanded_tools.clear();
     }
 
     fn jump_to_active_run(&mut self) {
@@ -326,21 +321,6 @@ impl App {
     fn scroll_to_bottom(&mut self) {
         // auto_follow will position correctly on next render
         self.auto_follow = true;
-    }
-
-    fn toggle_tool_expansion(&mut self) {
-        // Toggle expansion of the item at current scroll position
-        let is_tool = self
-            .selected_run()
-            .and_then(|run| {
-                run.items
-                    .get(self.scroll_offset)
-                    .map(|item| matches!(item, TranscriptItem::ToolUse { .. }))
-            })
-            .unwrap_or(false);
-        if is_tool && !self.expanded_tools.remove(&self.scroll_offset) {
-            self.expanded_tools.insert(self.scroll_offset);
-        }
     }
 
     fn recompute_search(&mut self) {
@@ -372,6 +352,13 @@ impl App {
                         TranscriptItem::SystemEvent { label, detail, .. } => {
                             label.to_lowercase().contains(&query_lower)
                                 || detail.to_lowercase().contains(&query_lower)
+                        }
+                        TranscriptItem::Thinking { text } => {
+                            text.to_lowercase().contains(&query_lower)
+                        }
+                        TranscriptItem::RunResult { stop_reason, result_text, .. } => {
+                            stop_reason.as_deref().unwrap_or("").to_lowercase().contains(&query_lower)
+                                || result_text.as_deref().unwrap_or("").to_lowercase().contains(&query_lower)
                         }
                         _ => false,
                     };
@@ -526,5 +513,15 @@ mod tests {
         app.auto_follow = false;
         app.handle_key(KeyEvent::new(KeyCode::Char('G'), KeyModifiers::NONE));
         assert!(app.auto_follow);
+    }
+
+    #[test]
+    fn e_toggles_expanded() {
+        let mut app = App::new();
+        assert!(!app.expanded);
+        app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
+        assert!(app.expanded);
+        app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
+        assert!(!app.expanded);
     }
 }
