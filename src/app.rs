@@ -57,6 +57,17 @@ impl App {
                 started_at,
             } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
+                    // If the last item is a streaming partial and the new batch
+                    // starts with a complete AssistantText, the partial was the
+                    // live preview — remove it so we don't get duplicates.
+                    if matches!(
+                        run.items.last(),
+                        Some(TranscriptItem::AssistantText { is_partial: true, .. })
+                    ) && new_items.first().is_some_and(|item| {
+                        matches!(item, TranscriptItem::AssistantText { is_partial: false, .. })
+                    }) {
+                        run.items.pop();
+                    }
                     run.items.extend(new_items);
                     run.stats.merge(&stats_delta);
                     run.status = RunStatus::Running;
