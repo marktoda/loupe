@@ -1,5 +1,6 @@
 pub mod help;
 pub mod run_list;
+pub mod run_summary;
 pub mod search;
 pub mod status_bar;
 pub mod transcript;
@@ -20,13 +21,19 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
         .split(size);
 
     if show_sidebar {
-        // Horizontal split: sidebar (22 cols) + main viewer
         let horizontal = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Length(22), Constraint::Min(1)])
             .split(vertical[0]);
 
-        run_list::render_run_list(frame, horizontal[0], app, app.focus == FocusPane::RunList);
+        // Split sidebar: run list (top) + run summary (bottom, 8 rows)
+        let sidebar = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(3), Constraint::Length(8)])
+            .split(horizontal[0]);
+
+        run_list::render_run_list(frame, sidebar[0], app, app.focus == FocusPane::RunList);
+        run_summary::render_run_summary(frame, sidebar[1], app);
         transcript::render_transcript(
             frame,
             horizontal[1],
