@@ -8,7 +8,12 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
 
     let text = vec![
         Line::from(""),
-        Line::from(vec![Span::styled("  Global", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "  Global",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
             Span::styled("    q / Ctrl-c    ", Style::default().fg(Color::Cyan)),
             Span::raw("Quit"),
@@ -30,7 +35,12 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
             Span::raw("Help"),
         ]),
         Line::from(""),
-        Line::from(vec![Span::styled("  Run List", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "  Run List",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
             Span::styled("    j/k  ↑/↓      ", Style::default().fg(Color::Cyan)),
             Span::raw("Select run"),
@@ -44,7 +54,12 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
             Span::raw("Jump to active run"),
         ]),
         Line::from(""),
-        Line::from(vec![Span::styled("  Main Viewer", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "  Main Viewer",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
             Span::styled("    j/k  ↑/↓      ", Style::default().fg(Color::Cyan)),
             Span::raw("Scroll"),
@@ -70,7 +85,12 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
             Span::raw("Next / Previous search match"),
         ]),
         Line::from(""),
-        Line::from(vec![Span::styled("  Search", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))]),
+        Line::from(vec![Span::styled(
+            "  Search",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )]),
         Line::from(vec![
             Span::styled("    Enter         ", Style::default().fg(Color::Cyan)),
             Span::raw("Keep highlights, close search"),
@@ -80,13 +100,19 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
             Span::raw("Clear highlights, close search"),
         ]),
         Line::from(""),
-        Line::from(vec![
-            Span::styled("         Press any key to close", Style::default().fg(Color::DarkGray)),
-        ]),
+        Line::from(vec![Span::styled(
+            "         Press any key to close",
+            Style::default().fg(Color::DarkGray),
+        )]),
     ];
 
     let help = Paragraph::new(text)
-        .block(Block::default().title(" Help ").borders(Borders::ALL).border_style(Style::default().fg(Color::Yellow)))
+        .block(
+            Block::default()
+                .title(" Help ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow)),
+        )
         .style(Style::default().fg(Color::White));
     frame.render_widget(help, popup);
 }

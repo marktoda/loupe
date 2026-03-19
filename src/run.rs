@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -31,15 +31,45 @@ pub enum RunStatus {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum TranscriptItem {
-    SessionStart { model: String, tools: Vec<String>, timestamp: DateTime<Utc> },
-    AssistantText { text: String, is_partial: bool },
-    ToolUse { name: String, summary: String, input: Option<Value> },
-    ToolResult { tool_name: String, summary: String, content: Option<String> },
-    SubagentStart { description: String, task_id: String },
-    SubagentProgress { description: String, tool_name: Option<String> },
-    SubagentEnd { summary: String, status: String, cost_usd: Option<f64> },
-    Error { message: String },
-    SystemEvent { label: String, detail: String },
+    SessionStart {
+        model: String,
+        tools: Vec<String>,
+        timestamp: DateTime<Utc>,
+    },
+    AssistantText {
+        text: String,
+        is_partial: bool,
+    },
+    ToolUse {
+        name: String,
+        summary: String,
+        input: Option<Value>,
+    },
+    ToolResult {
+        tool_name: String,
+        summary: String,
+        content: Option<String>,
+    },
+    SubagentStart {
+        description: String,
+        task_id: String,
+    },
+    SubagentProgress {
+        description: String,
+        tool_name: Option<String>,
+    },
+    SubagentEnd {
+        summary: String,
+        status: String,
+        cost_usd: Option<f64>,
+    },
+    Error {
+        message: String,
+    },
+    SystemEvent {
+        label: String,
+        detail: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -119,8 +149,17 @@ mod tests {
 
     #[test]
     fn run_stats_merge() {
-        let mut base = RunStats { tool_calls: 3, total_lines: 10, ..Default::default() };
-        let delta = RunStats { tool_calls: 2, total_lines: 5, cost_usd: Some(1.5), ..Default::default() };
+        let mut base = RunStats {
+            tool_calls: 3,
+            total_lines: 10,
+            ..Default::default()
+        };
+        let delta = RunStats {
+            tool_calls: 2,
+            total_lines: 5,
+            cost_usd: Some(1.5),
+            ..Default::default()
+        };
         base.merge(&delta);
         assert_eq!(base.tool_calls, 5);
         assert_eq!(base.total_lines, 15);

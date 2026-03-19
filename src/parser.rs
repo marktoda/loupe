@@ -31,7 +31,10 @@ pub fn parse_line(line: &str) -> ParseResult {
         return ParseResult::Error("Missing 'type' field".to_string());
     };
     let mut meta = LineMeta {
-        session_id: v.get("session_id").and_then(|s| s.as_str()).map(String::from),
+        session_id: v
+            .get("session_id")
+            .and_then(|s| s.as_str())
+            .map(String::from),
         ..Default::default()
     };
 
@@ -103,11 +106,9 @@ fn parse_system(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
                     arr.iter()
                         .filter_map(|item| {
                             // Tools can be strings or objects with a "name" field
-                            item.as_str()
-                                .map(String::from)
-                                .or_else(|| {
-                                    item.get("name").and_then(|n| n.as_str()).map(String::from)
-                                })
+                            item.as_str().map(String::from).or_else(|| {
+                                item.get("name").and_then(|n| n.as_str()).map(String::from)
+                            })
                         })
                         .collect()
                 })
@@ -346,9 +347,8 @@ fn parse_user(v: &Value) -> Vec<TranscriptItem> {
         .and_then(|m| m.get("content"))
         .and_then(|c| c.as_array())
         .and_then(|arr| {
-            arr.iter().find(|block| {
-                block.get("type").and_then(|t| t.as_str()) == Some("tool_result")
-            })
+            arr.iter()
+                .find(|block| block.get("type").and_then(|t| t.as_str()) == Some("tool_result"))
         })
         .and_then(|block| block.get("content"))
         .and_then(|c| c.as_str())
@@ -368,14 +368,8 @@ fn parse_result_event(v: &Value, meta: &mut LineMeta) {
             .and_then(|s| s.as_str())
             .unwrap_or("unknown")
             .to_string(),
-        is_error: v
-            .get("is_error")
-            .and_then(|b| b.as_bool())
-            .unwrap_or(false),
-        duration_ms: v
-            .get("duration_ms")
-            .and_then(|n| n.as_u64())
-            .unwrap_or(0),
+        is_error: v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(false),
+        duration_ms: v.get("duration_ms").and_then(|n| n.as_u64()).unwrap_or(0),
         num_turns: v.get("num_turns").and_then(|n| n.as_u64()).unwrap_or(0),
         total_cost_usd: v
             .get("total_cost_usd")
@@ -385,10 +379,7 @@ fn parse_result_event(v: &Value, meta: &mut LineMeta) {
             .get("stop_reason")
             .and_then(|s| s.as_str())
             .map(String::from),
-        result_text: v
-            .get("result")
-            .and_then(|s| s.as_str())
-            .map(String::from),
+        result_text: v.get("result").and_then(|s| s.as_str()).map(String::from),
     };
     meta.stats_delta.cost_usd = Some(result.total_cost_usd);
     meta.session_result = Some(result);

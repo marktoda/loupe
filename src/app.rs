@@ -1,8 +1,8 @@
-use chrono::Utc;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use crate::events::{AppEvent, ViewMode, FocusPane};
+use crate::events::{AppEvent, FocusPane, ViewMode};
 use crate::run::{Run, RunStatus, TranscriptItem};
 use crate::ui::search::SearchState;
+use chrono::Utc;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashSet;
 
 pub struct App {
@@ -44,7 +44,14 @@ impl App {
                     self.selected_run = Some(run_id);
                 }
             }
-            AppEvent::RunUpdated { run_id, new_items, raw_lines, stats_delta, session_id, started_at } => {
+            AppEvent::RunUpdated {
+                run_id,
+                new_items,
+                raw_lines,
+                stats_delta,
+                session_id,
+                started_at,
+            } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
                     run.items.extend(new_items);
                     run.raw_lines.extend(raw_lines);
@@ -61,7 +68,11 @@ impl App {
             }
             AppEvent::RunCompleted { run_id, result } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
-                    run.status = if result.is_error { RunStatus::Failed } else { RunStatus::Completed };
+                    run.status = if result.is_error {
+                        RunStatus::Failed
+                    } else {
+                        RunStatus::Completed
+                    };
                     run.ended_at = Some(Utc::now());
                     run.stats.cost_usd = Some(result.total_cost_usd);
                     run.result = Some(result);
@@ -70,18 +81,36 @@ impl App {
             AppEvent::StreamDelta { run_id, text } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
                     if let Some(last) = run.items.last_mut()
-                        && matches!(last, TranscriptItem::AssistantText { is_partial: true, .. })
+                        && matches!(
+                            last,
+                            TranscriptItem::AssistantText {
+                                is_partial: true,
+                                ..
+                            }
+                        )
                     {
-                        *last = TranscriptItem::AssistantText { text, is_partial: true };
+                        *last = TranscriptItem::AssistantText {
+                            text,
+                            is_partial: true,
+                        };
                         return;
                     }
-                    run.items.push(TranscriptItem::AssistantText { text, is_partial: true });
+                    run.items.push(TranscriptItem::AssistantText {
+                        text,
+                        is_partial: true,
+                    });
                 }
             }
             AppEvent::StreamBlockDone { run_id, item } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
                     if let Some(last) = run.items.last_mut()
-                        && matches!(last, TranscriptItem::AssistantText { is_partial: true, .. })
+                        && matches!(
+                            last,
+                            TranscriptItem::AssistantText {
+                                is_partial: true,
+                                ..
+                            }
+                        )
                     {
                         *last = item;
                         return;
@@ -89,10 +118,16 @@ impl App {
                     run.items.push(item);
                 }
             }
-            AppEvent::ParseError { run_id, line_no, error } => {
+            AppEvent::ParseError {
+                run_id,
+                line_no,
+                error,
+            } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
                     run.stats.parse_errors += 1;
-                    run.items.push(TranscriptItem::Error { message: format!("Line {line_no}: {error}") });
+                    run.items.push(TranscriptItem::Error {
+                        message: format!("Line {line_no}: {error}"),
+                    });
                 }
             }
             AppEvent::Key(_) | AppEvent::Resize(_, _) | AppEvent::Tick => {}
@@ -120,8 +155,14 @@ impl App {
                     self.search.is_active = false;
                     self.search.highlights_visible = true;
                 }
-                KeyCode::Backspace => { self.search.query.pop(); self.recompute_search(); }
-                KeyCode::Char(c) => { self.search.query.push(c); self.recompute_search(); }
+                KeyCode::Backspace => {
+                    self.search.query.pop();
+                    self.recompute_search();
+                }
+                KeyCode::Char(c) => {
+                    self.search.query.push(c);
+                    self.recompute_search();
+                }
                 _ => {}
             }
             return;
@@ -129,9 +170,13 @@ impl App {
 
         // Global keys
         match key.code {
-            KeyCode::Char('q') => { self.should_quit = true; return; }
+            KeyCode::Char('q') => {
+                self.should_quit = true;
+                return;
+            }
             KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                self.should_quit = true; return;
+                self.should_quit = true;
+                return;
             }
             KeyCode::Tab => {
                 self.focus = match self.focus {
@@ -140,11 +185,27 @@ impl App {
                 };
                 return;
             }
-            KeyCode::Char('1') => { self.view_mode = ViewMode::Transcript; return; }
-            KeyCode::Char('2') => { self.view_mode = ViewMode::Tools; return; }
-            KeyCode::Char('3') => { self.view_mode = ViewMode::Raw; return; }
-            KeyCode::Char('/') => { self.search.is_active = true; self.search.query.clear(); return; }
-            KeyCode::Char('?') => { self.show_help = true; return; }
+            KeyCode::Char('1') => {
+                self.view_mode = ViewMode::Transcript;
+                return;
+            }
+            KeyCode::Char('2') => {
+                self.view_mode = ViewMode::Tools;
+                return;
+            }
+            KeyCode::Char('3') => {
+                self.view_mode = ViewMode::Raw;
+                return;
+            }
+            KeyCode::Char('/') => {
+                self.search.is_active = true;
+                self.search.query.clear();
+                return;
+            }
+            KeyCode::Char('?') => {
+                self.show_help = true;
+                return;
+            }
             _ => {}
         }
 
@@ -153,20 +214,48 @@ impl App {
             FocusPane::RunList => match key.code {
                 KeyCode::Char('j') | KeyCode::Down => self.select_next_run(),
                 KeyCode::Char('k') | KeyCode::Up => self.select_prev_run(),
-                KeyCode::Char('g') => { if !self.runs.is_empty() { self.selected_run = Some(0); } }
+                KeyCode::Char('g') => {
+                    if !self.runs.is_empty() {
+                        self.selected_run = Some(0);
+                    }
+                }
                 KeyCode::Char('G') => self.selected_run = self.runs.len().checked_sub(1),
-                KeyCode::Char('f') => { self.jump_to_active_run(); self.auto_follow = true; }
+                KeyCode::Char('f') => {
+                    self.jump_to_active_run();
+                    self.auto_follow = true;
+                }
                 _ => {}
             },
             FocusPane::MainViewer => match key.code {
-                KeyCode::Char('j') | KeyCode::Down => { self.scroll_offset = self.scroll_offset.saturating_add(1); self.auto_follow = false; }
-                KeyCode::Char('k') | KeyCode::Up => { self.scroll_offset = self.scroll_offset.saturating_sub(1); self.auto_follow = false; }
-                KeyCode::PageDown => { self.scroll_offset = self.scroll_offset.saturating_add(20); self.auto_follow = false; }
-                KeyCode::PageUp => { self.scroll_offset = self.scroll_offset.saturating_sub(20); self.auto_follow = false; }
-                KeyCode::Char('g') | KeyCode::Home => { self.scroll_offset = 0; self.auto_follow = false; }
-                KeyCode::Char('G') | KeyCode::End => { self.scroll_to_bottom(); self.auto_follow = true; }
+                KeyCode::Char('j') | KeyCode::Down => {
+                    self.scroll_offset = self.scroll_offset.saturating_add(1);
+                    self.auto_follow = false;
+                }
+                KeyCode::Char('k') | KeyCode::Up => {
+                    self.scroll_offset = self.scroll_offset.saturating_sub(1);
+                    self.auto_follow = false;
+                }
+                KeyCode::PageDown => {
+                    self.scroll_offset = self.scroll_offset.saturating_add(20);
+                    self.auto_follow = false;
+                }
+                KeyCode::PageUp => {
+                    self.scroll_offset = self.scroll_offset.saturating_sub(20);
+                    self.auto_follow = false;
+                }
+                KeyCode::Char('g') | KeyCode::Home => {
+                    self.scroll_offset = 0;
+                    self.auto_follow = false;
+                }
+                KeyCode::Char('G') | KeyCode::End => {
+                    self.scroll_to_bottom();
+                    self.auto_follow = true;
+                }
                 KeyCode::Enter => self.toggle_tool_expansion(),
-                KeyCode::Char('f') => { self.scroll_to_bottom(); self.auto_follow = true; }
+                KeyCode::Char('f') => {
+                    self.scroll_to_bottom();
+                    self.auto_follow = true;
+                }
                 KeyCode::Char('n') if self.search.highlights_visible => self.search_next(),
                 KeyCode::Char('N') if self.search.highlights_visible => self.search_prev(),
                 _ => {}
@@ -192,7 +281,9 @@ impl App {
     }
 
     fn select_next_run(&mut self) {
-        if self.runs.is_empty() { return; }
+        if self.runs.is_empty() {
+            return;
+        }
         let current = self.selected_run.unwrap_or(0);
         self.selected_run = Some((current + 1).min(self.runs.len() - 1));
         self.scroll_offset = 0;
@@ -200,7 +291,9 @@ impl App {
     }
 
     fn select_prev_run(&mut self) {
-        if self.runs.is_empty() { return; }
+        if self.runs.is_empty() {
+            return;
+        }
         let current = self.selected_run.unwrap_or(0);
         self.selected_run = Some(current.saturating_sub(1));
         self.scroll_offset = 0;
@@ -209,7 +302,11 @@ impl App {
 
     fn jump_to_active_run(&mut self) {
         // Find the last run with Running status
-        if let Some(idx) = self.runs.iter().rposition(|r| r.status == RunStatus::Running) {
+        if let Some(idx) = self
+            .runs
+            .iter()
+            .rposition(|r| r.status == RunStatus::Running)
+        {
             self.selected_run = Some(idx);
             self.scroll_offset = 0;
         } else if let Some(last) = self.runs.len().checked_sub(1) {
@@ -225,10 +322,14 @@ impl App {
 
     fn toggle_tool_expansion(&mut self) {
         // Toggle expansion of the item at current scroll position
-        let is_tool = self.selected_run().and_then(|run| {
-            run.items.get(self.scroll_offset)
-                .map(|item| matches!(item, TranscriptItem::ToolUse { .. }))
-        }).unwrap_or(false);
+        let is_tool = self
+            .selected_run()
+            .and_then(|run| {
+                run.items
+                    .get(self.scroll_offset)
+                    .map(|item| matches!(item, TranscriptItem::ToolUse { .. }))
+            })
+            .unwrap_or(false);
         if is_tool {
             if self.expanded_tools.contains(&self.scroll_offset) {
                 self.expanded_tools.remove(&self.scroll_offset);
@@ -240,27 +341,39 @@ impl App {
 
     fn recompute_search(&mut self) {
         self.search.matches.clear();
-        if self.search.query.is_empty() { return; }
+        if self.search.query.is_empty() {
+            return;
+        }
         let query_lower = self.search.query.to_lowercase();
         // Collect matching indices without holding a borrow on self during mutation
         let matches: Vec<usize> = if let Some(run) = self.selected_run() {
-            run.items.iter().enumerate().filter_map(|(i, item)| {
-                let hit = match item {
-                    TranscriptItem::AssistantText { text, .. } => text.to_lowercase().contains(&query_lower),
-                    TranscriptItem::ToolUse { name, summary, .. } => {
-                        name.to_lowercase().contains(&query_lower)
-                            || summary.to_lowercase().contains(&query_lower)
-                    }
-                    TranscriptItem::ToolResult { summary, .. } => summary.to_lowercase().contains(&query_lower),
-                    TranscriptItem::Error { message } => message.to_lowercase().contains(&query_lower),
-                    TranscriptItem::SystemEvent { label, detail, .. } => {
-                        label.to_lowercase().contains(&query_lower)
-                            || detail.to_lowercase().contains(&query_lower)
-                    }
-                    _ => false,
-                };
-                if hit { Some(i) } else { None }
-            }).collect()
+            run.items
+                .iter()
+                .enumerate()
+                .filter_map(|(i, item)| {
+                    let hit = match item {
+                        TranscriptItem::AssistantText { text, .. } => {
+                            text.to_lowercase().contains(&query_lower)
+                        }
+                        TranscriptItem::ToolUse { name, summary, .. } => {
+                            name.to_lowercase().contains(&query_lower)
+                                || summary.to_lowercase().contains(&query_lower)
+                        }
+                        TranscriptItem::ToolResult { summary, .. } => {
+                            summary.to_lowercase().contains(&query_lower)
+                        }
+                        TranscriptItem::Error { message } => {
+                            message.to_lowercase().contains(&query_lower)
+                        }
+                        TranscriptItem::SystemEvent { label, detail, .. } => {
+                            label.to_lowercase().contains(&query_lower)
+                                || detail.to_lowercase().contains(&query_lower)
+                        }
+                        _ => false,
+                    };
+                    if hit { Some(i) } else { None }
+                })
+                .collect()
         } else {
             Vec::new()
         };
@@ -269,14 +382,18 @@ impl App {
     }
 
     fn search_next(&mut self) {
-        if self.search.matches.is_empty() { return; }
+        if self.search.matches.is_empty() {
+            return;
+        }
         self.search.current_match = (self.search.current_match + 1) % self.search.matches.len();
         self.scroll_offset = self.search.matches[self.search.current_match];
         self.auto_follow = false;
     }
 
     fn search_prev(&mut self) {
-        if self.search.matches.is_empty() { return; }
+        if self.search.matches.is_empty() {
+            return;
+        }
         if self.search.current_match == 0 {
             self.search.current_match = self.search.matches.len() - 1;
         } else {
@@ -291,13 +408,16 @@ impl App {
 mod tests {
     use super::*;
     use crate::events::AppEvent;
-    use crate::run::{TranscriptItem, RunStats};
+    use crate::run::{RunStats, TranscriptItem};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     #[test]
     fn run_discovered_adds_to_list() {
         let mut app = App::new(ViewMode::Transcript);
-        app.update_state(AppEvent::RunDiscovered { run_id: 0, path: "a.jsonl".into() });
+        app.update_state(AppEvent::RunDiscovered {
+            run_id: 0,
+            path: "a.jsonl".into(),
+        });
         assert_eq!(app.runs.len(), 1);
         assert_eq!(app.selected_run, Some(0));
     }
@@ -305,12 +425,21 @@ mod tests {
     #[test]
     fn run_updated_appends_items() {
         let mut app = App::new(ViewMode::Transcript);
-        app.update_state(AppEvent::RunDiscovered { run_id: 0, path: "a.jsonl".into() });
+        app.update_state(AppEvent::RunDiscovered {
+            run_id: 0,
+            path: "a.jsonl".into(),
+        });
         app.update_state(AppEvent::RunUpdated {
             run_id: 0,
-            new_items: vec![TranscriptItem::AssistantText { text: "hi".into(), is_partial: false }],
+            new_items: vec![TranscriptItem::AssistantText {
+                text: "hi".into(),
+                is_partial: false,
+            }],
             raw_lines: vec![],
-            stats_delta: RunStats { assistant_chars: 2, ..Default::default() },
+            stats_delta: RunStats {
+                assistant_chars: 2,
+                ..Default::default()
+            },
             session_id: None,
             started_at: None,
         });
@@ -321,23 +450,46 @@ mod tests {
     #[test]
     fn stream_delta_creates_partial() {
         let mut app = App::new(ViewMode::Transcript);
-        app.update_state(AppEvent::RunDiscovered { run_id: 0, path: "a.jsonl".into() });
-        app.update_state(AppEvent::StreamDelta { run_id: 0, text: "Hello".into() });
+        app.update_state(AppEvent::RunDiscovered {
+            run_id: 0,
+            path: "a.jsonl".into(),
+        });
+        app.update_state(AppEvent::StreamDelta {
+            run_id: 0,
+            text: "Hello".into(),
+        });
         assert_eq!(app.runs[0].items.len(), 1);
-        assert!(matches!(&app.runs[0].items[0], TranscriptItem::AssistantText { is_partial: true, .. }));
+        assert!(matches!(
+            &app.runs[0].items[0],
+            TranscriptItem::AssistantText {
+                is_partial: true,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn stream_block_done_replaces_partial() {
         let mut app = App::new(ViewMode::Transcript);
-        app.update_state(AppEvent::RunDiscovered { run_id: 0, path: "a.jsonl".into() });
-        app.update_state(AppEvent::StreamDelta { run_id: 0, text: "Hello".into() });
+        app.update_state(AppEvent::RunDiscovered {
+            run_id: 0,
+            path: "a.jsonl".into(),
+        });
+        app.update_state(AppEvent::StreamDelta {
+            run_id: 0,
+            text: "Hello".into(),
+        });
         app.update_state(AppEvent::StreamBlockDone {
             run_id: 0,
-            item: TranscriptItem::AssistantText { text: "Hello world".into(), is_partial: false },
+            item: TranscriptItem::AssistantText {
+                text: "Hello world".into(),
+                is_partial: false,
+            },
         });
         assert_eq!(app.runs[0].items.len(), 1);
-        assert!(matches!(&app.runs[0].items[0], TranscriptItem::AssistantText { text, is_partial: false } if text == "Hello world"));
+        assert!(
+            matches!(&app.runs[0].items[0], TranscriptItem::AssistantText { text, is_partial: false } if text == "Hello world")
+        );
     }
 
     #[test]

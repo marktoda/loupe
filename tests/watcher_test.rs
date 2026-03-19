@@ -1,6 +1,6 @@
 use tempfile::TempDir;
 use tokio::sync::mpsc;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 #[tokio::test]
 async fn discovers_existing_jsonl_files() {
@@ -16,15 +16,26 @@ async fn discovers_existing_jsonl_files() {
     let cancel_clone = cancel.clone();
 
     tokio::spawn(async move {
-        loupe::watcher::run_watcher(dir.path().to_path_buf(), tx, cancel_clone).await.unwrap();
+        loupe::watcher::run_watcher(dir.path().to_path_buf(), tx, cancel_clone)
+            .await
+            .unwrap();
     });
 
     // Should discover the existing file
-    let event = timeout(Duration::from_secs(2), rx.recv()).await.unwrap().unwrap();
-    assert!(matches!(event, loupe::events::AppEvent::RunDiscovered { .. }));
+    let event = timeout(Duration::from_secs(2), rx.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        event,
+        loupe::events::AppEvent::RunDiscovered { .. }
+    ));
 
     // Should get RunUpdated with parsed items
-    let event = timeout(Duration::from_secs(2), rx.recv()).await.unwrap().unwrap();
+    let event = timeout(Duration::from_secs(2), rx.recv())
+        .await
+        .unwrap()
+        .unwrap();
     assert!(matches!(event, loupe::events::AppEvent::RunUpdated { .. }));
 
     cancel.cancel();

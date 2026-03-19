@@ -5,7 +5,8 @@ fn parse_minimal_session_fixture() {
     let mut result = None;
 
     for line in content.lines() {
-        if let loupe::parser::ParseResult::Parsed(new_items, meta) = loupe::parser::parse_line(line) {
+        if let loupe::parser::ParseResult::Parsed(new_items, meta) = loupe::parser::parse_line(line)
+        {
             items.extend(new_items);
             if let Some(r) = meta.session_result {
                 result = Some(r);
@@ -14,9 +15,24 @@ fn parse_minimal_session_fixture() {
     }
 
     assert!(!items.is_empty(), "Should have parsed some items");
-    assert!(items.iter().any(|i| matches!(i, loupe::run::TranscriptItem::SessionStart { .. })), "Should have SessionStart");
-    assert!(items.iter().any(|i| matches!(i, loupe::run::TranscriptItem::AssistantText { .. })), "Should have AssistantText");
-    assert!(items.iter().any(|i| matches!(i, loupe::run::TranscriptItem::ToolUse { .. })), "Should have ToolUse");
+    assert!(
+        items
+            .iter()
+            .any(|i| matches!(i, loupe::run::TranscriptItem::SessionStart { .. })),
+        "Should have SessionStart"
+    );
+    assert!(
+        items
+            .iter()
+            .any(|i| matches!(i, loupe::run::TranscriptItem::AssistantText { .. })),
+        "Should have AssistantText"
+    );
+    assert!(
+        items
+            .iter()
+            .any(|i| matches!(i, loupe::run::TranscriptItem::ToolUse { .. })),
+        "Should have ToolUse"
+    );
     assert!(result.is_some(), "Should have a session result");
     let result = result.unwrap();
     assert_eq!(result.subtype, "success");

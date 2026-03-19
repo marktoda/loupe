@@ -1,5 +1,5 @@
-use serde_json::Value;
 use crate::events::AppEvent;
+use serde_json::Value;
 
 /// Tier 2 stateful accumulator for stream_event deltas.
 /// Buffers partial text/tool-input between content_block_start and block_done.
@@ -11,7 +11,9 @@ pub struct DeltaAccumulator {
 }
 
 impl DeltaAccumulator {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn on_content_block_start(&mut self, block_type: &str) {
         self.active_block_type = Some(block_type.to_string());
@@ -47,7 +49,9 @@ impl DeltaAccumulator {
 
     #[allow(dead_code)]
     pub fn current_tool_input_json(&self) -> Option<&str> {
-        if self.active_block_type.as_deref() == Some("tool_use") && !self.tool_input_buffer.is_empty() {
+        if self.active_block_type.as_deref() == Some("tool_use")
+            && !self.tool_input_buffer.is_empty()
+        {
             Some(&self.tool_input_buffer)
         } else {
             None
@@ -62,7 +66,11 @@ impl DeltaAccumulator {
 
 /// Process a stream_event JSON line through the accumulator.
 /// Returns Some(StreamDelta) when there's new text to show.
-pub fn process_stream_event(v: &Value, run_id: usize, acc: &mut DeltaAccumulator) -> Option<AppEvent> {
+pub fn process_stream_event(
+    v: &Value,
+    run_id: usize,
+    acc: &mut DeltaAccumulator,
+) -> Option<AppEvent> {
     let event = v.get("event")?;
     let event_type = event.get("type")?.as_str()?;
 
@@ -136,7 +144,10 @@ mod tests {
         acc.on_content_block_start("tool_use");
         acc.on_input_json_delta(r#"{"file"#);
         acc.on_input_json_delta(r#"_path":"/foo"}"#);
-        assert_eq!(acc.current_tool_input_json(), Some(r#"{"file_path":"/foo"}"#));
+        assert_eq!(
+            acc.current_tool_input_json(),
+            Some(r#"{"file_path":"/foo"}"#)
+        );
     }
 
     #[test]

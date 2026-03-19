@@ -1,7 +1,7 @@
-use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use crate::app::App;
 use crate::run::TranscriptItem;
+use ratatui::prelude::*;
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
 /// Split `text` into styled spans, highlighting all case-insensitive occurrences of `query`
 /// with a yellow background. Returns a single span if query is empty.
@@ -72,8 +72,16 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
         match item {
             TranscriptItem::SessionStart { model, tools, .. } => {
                 lines.push(Line::from(vec![
-                    Span::styled("SESSION  ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-                    Span::styled(format!("{model} · {} tools", tools.len()), Style::default().fg(Color::Green)),
+                    Span::styled(
+                        "SESSION  ",
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{model} · {} tools", tools.len()),
+                        Style::default().fg(Color::Green),
+                    ),
                 ]));
                 lines.push(Line::default());
             }
@@ -92,7 +100,12 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                         vec![Span::styled(line_text.to_string(), base_style)]
                     };
                     if li == 0 {
-                        let mut spans = vec![Span::styled("ASSIST   ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))];
+                        let mut spans = vec![Span::styled(
+                            "ASSIST   ",
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD),
+                        )];
                         spans.extend(content_spans);
                         lines.push(Line::from(spans));
                     } else {
@@ -103,9 +116,18 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                 }
                 lines.push(Line::default());
             }
-            TranscriptItem::ToolUse { name, summary, input } => {
+            TranscriptItem::ToolUse {
+                name,
+                summary,
+                input,
+            } => {
                 lines.push(Line::from(vec![
-                    Span::styled("TOOL     ", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        "TOOL     ",
+                        Style::default()
+                            .fg(Color::Magenta)
+                            .add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(name.to_string(), Style::default().fg(Color::Red)),
                     Span::raw("  "),
                     Span::styled(summary.clone(), Style::default().fg(Color::DarkGray)),
@@ -118,19 +140,25 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                     for json_line in json_str.lines().take(15) {
                         lines.push(Line::from(vec![
                             Span::raw("         "),
-                            Span::styled(format!("│ {json_line}"), Style::default().fg(Color::DarkGray)),
+                            Span::styled(
+                                format!("│ {json_line}"),
+                                Style::default().fg(Color::DarkGray),
+                            ),
                         ]));
                     }
                 }
             }
-            TranscriptItem::ToolResult { tool_name: _, summary: _, content } => {
-                let parent_expanded = (0..i).rev()
+            TranscriptItem::ToolResult {
+                tool_name: _,
+                summary: _,
+                content,
+            } => {
+                let parent_expanded = (0..i)
+                    .rev()
                     .find(|&j| matches!(&run.items[j], TranscriptItem::ToolUse { .. }))
                     .is_some_and(|j| app.expanded_tools.contains(&j));
 
-                if parent_expanded
-                    && let Some(content_text) = content
-                {
+                if parent_expanded && let Some(content_text) = content {
                     lines.push(Line::from(vec![
                         Span::raw("         "),
                         Span::styled("┌─ result ─", Style::default().fg(Color::DarkGray)),
@@ -138,7 +166,10 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                     for content_line in content_text.lines().take(20) {
                         lines.push(Line::from(vec![
                             Span::raw("         "),
-                            Span::styled(format!("│ {content_line}"), Style::default().fg(Color::DarkGray)),
+                            Span::styled(
+                                format!("│ {content_line}"),
+                                Style::default().fg(Color::DarkGray),
+                            ),
                         ]));
                     }
                     lines.push(Line::from(vec![
@@ -149,35 +180,59 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
             }
             TranscriptItem::SubagentStart { description, .. } => {
                 lines.push(Line::from(vec![
-                    Span::styled("AGENT    ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        "AGENT    ",
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(description.clone(), Style::default().fg(Color::Yellow)),
                 ]));
             }
-            TranscriptItem::SubagentProgress { description, tool_name } => {
+            TranscriptItem::SubagentProgress {
+                description,
+                tool_name,
+            } => {
                 let tool = tool_name.as_deref().unwrap_or("");
                 lines.push(Line::from(vec![
                     Span::styled("  ├─     ", Style::default().fg(Color::Yellow)),
-                    Span::styled(format!("{tool}  {description}"), Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        format!("{tool}  {description}"),
+                        Style::default().fg(Color::DarkGray),
+                    ),
                 ]));
             }
-            TranscriptItem::SubagentEnd { summary, status, cost_usd } => {
+            TranscriptItem::SubagentEnd {
+                summary,
+                status,
+                cost_usd,
+            } => {
                 let cost = cost_usd.map(|c| format!("${c:.2}")).unwrap_or_default();
                 lines.push(Line::from(vec![
                     Span::styled("  └─     ", Style::default().fg(Color::Yellow)),
-                    Span::styled(format!("{status} · {summary} · {cost}"), Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        format!("{status} · {summary} · {cost}"),
+                        Style::default().fg(Color::DarkGray),
+                    ),
                 ]));
                 lines.push(Line::default());
             }
             TranscriptItem::Error { message } => {
                 lines.push(Line::from(vec![
-                    Span::styled("ERROR    ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        "ERROR    ",
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(message.clone(), Style::default().fg(Color::Red)),
                 ]));
             }
             TranscriptItem::SystemEvent { label, detail } => {
                 lines.push(Line::from(vec![
                     Span::styled("SYSTEM   ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(format!("{label}: {detail}"), Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        format!("{label}: {detail}"),
+                        Style::default().fg(Color::DarkGray),
+                    ),
                 ]));
             }
         }

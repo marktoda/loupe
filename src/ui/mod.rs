@@ -1,14 +1,14 @@
-pub mod run_list;
-pub mod transcript;
-pub mod tools_view;
-pub mod raw_view;
-pub mod status_bar;
-pub mod search;
 pub mod help;
+pub mod raw_view;
+pub mod run_list;
+pub mod search;
+pub mod status_bar;
+pub mod tools_view;
+pub mod transcript;
 
-use ratatui::prelude::*;
 use crate::app::App;
 use crate::events::ViewMode;
+use ratatui::prelude::*;
 
 pub fn render_app(frame: &mut Frame, app: &mut App) {
     let size = frame.area();

@@ -1,15 +1,15 @@
 use clap::Parser;
-use std::path::PathBuf;
-use std::time::Duration;
-use std::io;
 use color_eyre::eyre::Result;
 use crossterm::{
-    terminal::{enable_raw_mode, disable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    execute,
     event::EventStream,
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::prelude::*;
 use futures::StreamExt;
+use ratatui::prelude::*;
+use std::io;
+use std::path::PathBuf;
+use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 mod app;
@@ -17,14 +17,18 @@ mod events;
 mod parser;
 mod run;
 mod streaming;
-mod watcher;
 mod ui;
+mod watcher;
 
 use app::App;
 use events::{AppEvent, ViewMode};
 
 #[derive(Parser)]
-#[command(name = "loupe", version, about = "TUI viewer for Claude Code JSONL streams")]
+#[command(
+    name = "loupe",
+    version,
+    about = "TUI viewer for Claude Code JSONL streams"
+)]
 struct Cli {
     /// Directory containing JSONL run logs
     path: PathBuf,
@@ -67,9 +71,7 @@ fn setup_tracing() -> Result<tracing_appender::non_blocking::WorkerGuard> {
     let file_appender = tracing_appender::rolling::never(&log_dir, "loupe.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
     tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_env("LOUPE_LOG")
-        )
+        .with_env_filter(tracing_subscriber::EnvFilter::from_env("LOUPE_LOG"))
         .with_writer(non_blocking)
         .init();
     Ok(guard)
@@ -93,10 +95,7 @@ async fn main() -> Result<()> {
     result
 }
 
-async fn run_app(
-    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    cli: Cli,
-) -> Result<()> {
+async fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, cli: Cli) -> Result<()> {
     let mut app = App::new(cli.view);
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let cancel = CancellationToken::new();
