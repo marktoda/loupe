@@ -57,8 +57,8 @@ pub fn parse_line(line: &str) -> ParseResult {
             }
         }
         "result" => {
-            parse_result_event(&v, &mut meta);
-            ParseResult::Parsed(vec![], meta)
+            let items = parse_result_event(&v, &mut meta);
+            ParseResult::Parsed(items, meta)
         }
         "rate_limit_event" => ParseResult::Parsed(
             vec![TranscriptItem::SystemEvent {
@@ -175,13 +175,20 @@ fn parse_system(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
                 .and_then(|s| s.as_str())
                 .unwrap_or("")
                 .to_string();
+            let usage = v.get("usage");
+            let duration_ms =
+                usage.and_then(|u| u.get("duration_ms")).and_then(|d| d.as_u64());
+            let tool_uses =
+                usage.and_then(|u| u.get("tool_uses")).and_then(|t| t.as_u64());
+            let total_tokens =
+                usage.and_then(|u| u.get("total_tokens")).and_then(|t| t.as_u64());
             vec![TranscriptItem::SubagentEnd {
                 summary,
                 status,
                 cost_usd: None,
-                duration_ms: None,
-                tool_uses: None,
-                total_tokens: None,
+                duration_ms,
+                tool_uses,
+                total_tokens,
             }]
         }
         other => {
@@ -245,7 +252,14 @@ fn parse_assistant(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
                 });
             }
             "thinking" => {
-                // skip
+                let text = block
+                    .get("text")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if !text.is_empty() {
+                    items.push(TranscriptItem::Thinking { text });
+                }
             }
             _ => {
                 // skip unknown block types
@@ -365,7 +379,7 @@ fn parse_user(v: &Value) -> Vec<TranscriptItem> {
     }]
 }
 
-fn parse_result_event(v: &Value, meta: &mut LineMeta) {
+fn parse_result_event(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
     let result = SessionResult {
         subtype: v
             .get("subtype")
@@ -385,8 +399,35 @@ fn parse_result_event(v: &Value, meta: &mut LineMeta) {
             .map(String::from),
         result_text: v.get("result").and_then(|s| s.as_str()).map(String::from),
     };
+
+    if let Some(usage) = v.get("usage") {
+        let input = usage
+            .get("input_tokens")
+            .and_then(|n| n.as_u64())
+            .unwrap_or(0);
+        let output = usage
+            .get("output_tokens")
+            .and_then(|n| n.as_u64())
+            .unwrap_or(0);
+        let total = input + output;
+        if total > 0 {
+            meta.stats_delta.token_count = total;
+        }
+    }
+    meta.stats_delta.num_turns = result.num_turns;
+
+    let item = TranscriptItem::RunResult {
+        is_error: result.is_error,
+        stop_reason: result.stop_reason.clone(),
+        num_turns: result.num_turns,
+        total_cost_usd: result.total_cost_usd,
+        duration_ms: result.duration_ms,
+        result_text: result.result_text.clone(),
+    };
+
     meta.stats_delta.cost_usd = Some(result.total_cost_usd);
     meta.session_result = Some(result);
+    vec![item]
 }
 
 #[cfg(test)]
@@ -445,7 +486,7 @@ mod tests {
         let ParseResult::Parsed(items, meta) = parse_line(line) else {
             panic!("expected Parsed")
         };
-        assert!(items.is_empty());
+        assert_eq!(items.len(), 1);
         assert!(meta.session_result.is_some());
         assert_eq!(meta.session_result.unwrap().total_cost_usd, 2.5);
     }
@@ -493,5 +534,53 @@ mod tests {
         assert!(
             matches!(&items[0], TranscriptItem::SubagentEnd { status, .. } if status == "completed")
         );
+    }
+
+    #[test]
+    fn parse_assistant_thinking_block() {
+        let line = r#"{"type":"assistant","message":{"content":[{"type":"thinking","text":"Let me think about this..."},{"type":"text","text":"Here is my answer"}],"role":"assistant"},"session_id":"abc"}"#;
+        let ParseResult::Parsed(items, _) = parse_line(line) else {
+            panic!("expected Parsed")
+        };
+        assert_eq!(items.len(), 2);
+        assert!(matches!(&items[0], TranscriptItem::Thinking { text } if text == "Let me think about this..."));
+        assert!(matches!(&items[1], TranscriptItem::AssistantText { text, .. } if text == "Here is my answer"));
+    }
+
+    #[test]
+    fn parse_result_emits_run_result_item() {
+        let line = r#"{"type":"result","subtype":"success","is_error":false,"duration_ms":60000,"num_turns":10,"total_cost_usd":2.5,"stop_reason":"end_turn","result":"All done","session_id":"abc"}"#;
+        let ParseResult::Parsed(items, meta) = parse_line(line) else {
+            panic!("expected Parsed")
+        };
+        assert_eq!(items.len(), 1);
+        assert!(matches!(
+            &items[0],
+            TranscriptItem::RunResult {
+                is_error: false,
+                num_turns: 10,
+                total_cost_usd,
+                duration_ms: 60000,
+                ..
+            } if (*total_cost_usd - 2.5).abs() < f64::EPSILON
+        ));
+        assert!(meta.session_result.is_some());
+    }
+
+    #[test]
+    fn parse_subagent_notification_with_usage() {
+        let line = r#"{"type":"system","subtype":"task_notification","task_id":"t1","status":"completed","summary":"Did the thing","usage":{"total_tokens":50000,"tool_uses":9,"duration_ms":240000},"session_id":"abc"}"#;
+        let ParseResult::Parsed(items, _) = parse_line(line) else {
+            panic!("expected Parsed")
+        };
+        assert!(matches!(
+            &items[0],
+            TranscriptItem::SubagentEnd {
+                duration_ms: Some(240000),
+                tool_uses: Some(9),
+                total_tokens: Some(50000),
+                ..
+            }
+        ));
     }
 }
