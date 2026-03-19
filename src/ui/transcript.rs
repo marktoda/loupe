@@ -183,6 +183,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 tool_name: _,
                 summary: _,
                 content,
+                duration_ms: _,
             } => {
                 let parent_expanded = (0..i)
                     .rev()
@@ -226,6 +227,9 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 summary,
                 status,
                 cost_usd,
+                duration_ms: _,
+                tool_uses: _,
+                total_tokens: _,
             } => {
                 let cost = cost_usd.map(|c| format!("${c:.2}")).unwrap_or_default();
                 lines.push(Line::from(vec![
@@ -245,6 +249,12 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                     Span::styled("SYSTEM   ", dim),
                     Span::styled(format!("{label}: {detail}"), dim),
                 ]));
+            }
+            TranscriptItem::Thinking { .. } => {
+                // Not yet rendered
+            }
+            TranscriptItem::RunResult { .. } => {
+                // Not yet rendered
             }
         }
     }

@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use std::path::PathBuf;
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -17,6 +18,7 @@ pub struct Run {
     pub bytes_read: u64,
     pub result: Option<SessionResult>,
     pub last_modified: Option<std::time::SystemTime>,
+    pub tool_timestamps: std::collections::HashMap<usize, Instant>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,6 +50,7 @@ pub enum TranscriptItem {
         tool_name: String,
         summary: String,
         content: Option<String>,
+        duration_ms: Option<u64>,
     },
     SubagentStart {
         description: String,
@@ -61,6 +64,9 @@ pub enum TranscriptItem {
         summary: String,
         status: String,
         cost_usd: Option<f64>,
+        duration_ms: Option<u64>,
+        tool_uses: Option<u64>,
+        total_tokens: Option<u64>,
     },
     Error {
         message: String,
@@ -68,6 +74,17 @@ pub enum TranscriptItem {
     SystemEvent {
         label: String,
         detail: String,
+    },
+    Thinking {
+        text: String,
+    },
+    RunResult {
+        is_error: bool,
+        stop_reason: Option<String>,
+        num_turns: u64,
+        total_cost_usd: f64,
+        duration_ms: u64,
+        result_text: Option<String>,
     },
 }
 
@@ -91,6 +108,8 @@ pub struct RunStats {
     pub parse_errors: usize,
     pub total_lines: usize,
     pub cost_usd: Option<f64>,
+    pub num_turns: u64,
+    pub token_count: u64,
 }
 
 impl Run {
@@ -108,6 +127,7 @@ impl Run {
             bytes_read: 0,
             result: None,
             last_modified: None,
+            tool_timestamps: std::collections::HashMap::new(),
         }
     }
 
@@ -129,6 +149,12 @@ impl RunStats {
         self.total_lines += other.total_lines;
         if other.cost_usd.is_some() {
             self.cost_usd = other.cost_usd;
+        }
+        if other.num_turns > 0 {
+            self.num_turns = other.num_turns;
+        }
+        if other.token_count > 0 {
+            self.token_count = other.token_count;
         }
     }
 }
@@ -168,5 +194,22 @@ mod tests {
     fn duration_returns_none_without_start() {
         let run = Run::new(0, PathBuf::from("test.jsonl"));
         assert!(run.duration().is_none());
+    }
+
+    #[test]
+    fn run_stats_merge_new_fields() {
+        let mut base = RunStats {
+            num_turns: 5,
+            token_count: 1000,
+            ..Default::default()
+        };
+        let delta = RunStats {
+            num_turns: 10,
+            token_count: 5000,
+            ..Default::default()
+        };
+        base.merge(&delta);
+        assert_eq!(base.num_turns, 10); // num_turns is replaced, not summed
+        assert_eq!(base.token_count, 5000); // token_count is replaced, not summed
     }
 }

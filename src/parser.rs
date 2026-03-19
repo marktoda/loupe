@@ -179,6 +179,9 @@ fn parse_system(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
                 summary,
                 status,
                 cost_usd: None,
+                duration_ms: None,
+                tool_uses: None,
+                total_tokens: None,
             }]
         }
         other => {
@@ -358,6 +361,7 @@ fn parse_user(v: &Value) -> Vec<TranscriptItem> {
         tool_name,
         summary,
         content,
+        duration_ms: None,
     }]
 }
 
