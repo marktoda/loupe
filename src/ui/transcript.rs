@@ -3,6 +3,37 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use crate::app::App;
 use crate::run::TranscriptItem;
 
+/// Split `text` into styled spans, highlighting all case-insensitive occurrences of `query`
+/// with a yellow background. Returns a single span if query is empty.
+fn highlight_text(text: &str, query: &str, base_style: Style) -> Vec<Span<'static>> {
+    if query.is_empty() {
+        return vec![Span::styled(text.to_string(), base_style)];
+    }
+    let query_lower = query.to_lowercase();
+    let text_lower = text.to_lowercase();
+    let mut spans = Vec::new();
+    let mut last_end = 0;
+
+    for (start, _) in text_lower.match_indices(&query_lower as &str) {
+        let end = start + query.len();
+        if start > last_end {
+            spans.push(Span::styled(text[last_end..start].to_string(), base_style));
+        }
+        spans.push(Span::styled(
+            text[start..end].to_string(),
+            Style::default().bg(Color::Rgb(80, 80, 0)).fg(Color::Yellow),
+        ));
+        last_end = end;
+    }
+    if last_end < text.len() {
+        spans.push(Span::styled(text[last_end..].to_string(), base_style));
+    }
+    if spans.is_empty() {
+        spans.push(Span::styled(text.to_string(), base_style));
+    }
+    spans
+}
+
 pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
     let block = Block::default()
         .title(" Transcript ")
@@ -32,6 +63,9 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
         return;
     }
 
+    let search_active = app.search.highlights_visible && !app.search.query.is_empty();
+    let query = app.search.query.clone();
+
     let mut lines: Vec<Line> = Vec::new();
 
     for (i, item) in run.items.iter().enumerate() {
@@ -50,17 +84,21 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                     text.clone()
                 };
                 let text_lines: Vec<&str> = display.lines().collect();
+                let base_style = Style::default().fg(Color::White);
                 for (li, line_text) in text_lines.iter().enumerate() {
-                    if li == 0 {
-                        lines.push(Line::from(vec![
-                            Span::styled("ASSIST   ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                            Span::styled(line_text.to_string(), Style::default().fg(Color::White)),
-                        ]));
+                    let content_spans = if search_active {
+                        highlight_text(line_text, &query, base_style)
                     } else {
-                        lines.push(Line::from(vec![
-                            Span::raw("         "),
-                            Span::styled(line_text.to_string(), Style::default().fg(Color::White)),
-                        ]));
+                        vec![Span::styled(line_text.to_string(), base_style)]
+                    };
+                    if li == 0 {
+                        let mut spans = vec![Span::styled("ASSIST   ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))];
+                        spans.extend(content_spans);
+                        lines.push(Line::from(spans));
+                    } else {
+                        let mut spans = vec![Span::raw("         ")];
+                        spans.extend(content_spans);
+                        lines.push(Line::from(spans));
                     }
                 }
                 lines.push(Line::default());

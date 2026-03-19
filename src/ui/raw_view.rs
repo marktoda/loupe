@@ -17,12 +17,31 @@ pub fn render_raw(frame: &mut Frame, area: Rect, app: &App) {
         return;
     };
 
+    if run.raw_lines.is_empty() {
+        let p = Paragraph::new("No raw lines")
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(Alignment::Center);
+        frame.render_widget(p, inner);
+        return;
+    }
+
+    // Gutter width: enough digits for the total line count
+    let total = run.raw_lines.len();
+    let gutter_width = total.to_string().len().max(4);
+    // Available width for content: inner width minus gutter and separator
+    let content_width = (inner.width as usize).saturating_sub(gutter_width + 1);
+
     let lines: Vec<Line> = run.raw_lines.iter().enumerate().map(|(i, line)| {
-        let num = format!("{:>5} ", i + 1);
-        let truncated = if line.len() > 200 { &line[..200] } else { line.as_str() };
+        let num = format!("{:>width$} ", i + 1, width = gutter_width);
+        // Truncate to fit terminal width — no wrapping in raw view
+        let truncated = if line.len() > content_width && content_width > 0 {
+            &line[..content_width]
+        } else {
+            line.as_str()
+        };
         Line::from(vec![
-            Span::styled(num, Style::default().fg(Color::DarkGray)),
-            Span::raw(truncated.to_string()),
+            Span::styled(num, Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)),
+            Span::styled(truncated.to_string(), Style::default().fg(Color::White)),
         ])
     }).collect();
 

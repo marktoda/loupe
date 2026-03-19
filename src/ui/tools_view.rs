@@ -18,35 +18,59 @@ pub fn render_tools(frame: &mut Frame, area: Rect, app: &App) {
         return;
     };
 
-    let mut lines: Vec<Line> = Vec::new();
+    // Collect only tool-related items
+    let mut tool_lines: Vec<Line> = Vec::new();
     for item in &run.items {
         match item {
             TranscriptItem::ToolUse { name, summary, .. } => {
-                lines.push(Line::from(vec![
-                    Span::styled(format!("{name:<8}"), Style::default().fg(Color::Red)),
-                    Span::raw("  "),
+                // Truncate summary to fit remaining width after name column
+                let name_col = format!("{name:<16}");
+                tool_lines.push(Line::from(vec![
+                    Span::styled(name_col, Style::default().fg(Color::Magenta)),
                     Span::styled(summary.clone(), Style::default().fg(Color::White)),
                 ]));
             }
+            TranscriptItem::ToolResult { tool_name, summary, .. } => {
+                let name_col = format!("{:<16}", format!("  ↳ {tool_name}"));
+                tool_lines.push(Line::from(vec![
+                    Span::styled(name_col, Style::default().fg(Color::DarkGray)),
+                    Span::styled(summary.clone(), Style::default().fg(Color::DarkGray)),
+                ]));
+            }
             TranscriptItem::SubagentStart { description, .. } => {
-                lines.push(Line::from(vec![
-                    Span::styled("Agent   ", Style::default().fg(Color::Yellow)),
-                    Span::raw("  "),
+                tool_lines.push(Line::from(vec![
+                    Span::styled(format!("{:<16}", "AGENT"), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                     Span::styled(description.clone(), Style::default().fg(Color::Yellow)),
                 ]));
             }
-            TranscriptItem::SubagentEnd { summary, status, .. } => {
-                lines.push(Line::from(vec![
-                    Span::styled("  └─    ", Style::default().fg(Color::Yellow)),
-                    Span::raw("  "),
-                    Span::styled(format!("{status}: {summary}"), Style::default().fg(Color::DarkGray)),
+            TranscriptItem::SubagentProgress { description, tool_name } => {
+                let tool = tool_name.as_deref().unwrap_or("…");
+                let prefix = format!("{:<16}", format!("  ├─ {tool}"));
+                tool_lines.push(Line::from(vec![
+                    Span::styled(prefix, Style::default().fg(Color::Yellow)),
+                    Span::styled(description.clone(), Style::default().fg(Color::DarkGray)),
+                ]));
+            }
+            TranscriptItem::SubagentEnd { summary, status, cost_usd } => {
+                let cost = cost_usd.map(|c| format!("  ${c:.2}")).unwrap_or_default();
+                tool_lines.push(Line::from(vec![
+                    Span::styled(format!("{:<16}", "  └─"), Style::default().fg(Color::Yellow)),
+                    Span::styled(format!("{status}: {summary}{cost}"), Style::default().fg(Color::DarkGray)),
                 ]));
             }
             _ => {}
         }
     }
 
-    let paragraph = Paragraph::new(lines)
+    if tool_lines.is_empty() {
+        let p = Paragraph::new("No tool calls in this run")
+            .style(Style::default().fg(Color::DarkGray))
+            .alignment(Alignment::Center);
+        frame.render_widget(p, inner);
+        return;
+    }
+
+    let paragraph = Paragraph::new(tool_lines)
         .scroll((app.scroll_offset as u16, 0));
     frame.render_widget(paragraph, inner);
 }
