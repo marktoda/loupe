@@ -82,6 +82,19 @@ pub fn parse_line(line: &str) -> ParseResult {
     }
 }
 
+/// Truncate a string to at most `max` bytes, respecting UTF-8 char boundaries.
+fn truncate_str(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    // Find the last char boundary at or before max
+    let mut end = max;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
 fn parse_system(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
     let subtype = v.get("subtype").and_then(|s| s.as_str()).unwrap_or("");
 
@@ -258,8 +271,7 @@ fn extract_tool_summary(name: &str, input: Option<&Value>) -> String {
         }
         "Bash" => {
             if let Some(cmd) = input.get("command").and_then(|v| v.as_str()) {
-                let truncated = &cmd[..cmd.len().min(80)];
-                return truncated.to_string();
+                return truncate_str(cmd, 80).to_string();
             }
         }
         "Edit" => {
@@ -334,10 +346,7 @@ fn parse_user(v: &Value) -> Vec<TranscriptItem> {
                 })
                 .and_then(|block| block.get("content"))
                 .and_then(|c| c.as_str())
-                .map(|s| {
-                    let truncated = &s[..s.len().min(80)];
-                    truncated.to_string()
-                })
+                .map(|s| truncate_str(s, 80).to_string())
         })
         .unwrap_or_else(|| tool_name.clone());
 

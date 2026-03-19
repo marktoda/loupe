@@ -77,9 +77,23 @@ fn setup_tracing() -> Result<tracing_appender::non_blocking::WorkerGuard> {
     Ok(guard)
 }
 
+/// Install a panic hook that restores the terminal before printing the panic.
+/// Without this, panics in spawned tasks garble the terminal output.
+fn install_panic_hook() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        // Best-effort terminal restore
+        let _ = disable_raw_mode();
+        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+        let _ = crossterm::cursor::Show;
+        default_hook(info);
+    }));
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
+    install_panic_hook();
     let cli = Cli::parse();
 
     if !cli.path.is_dir() {
