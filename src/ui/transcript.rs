@@ -116,7 +116,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
 
     let mut lines: Vec<Line> = Vec::new();
 
-    for (i, item) in run.items.iter().enumerate() {
+    for (_i, item) in run.items.iter().enumerate() {
         match item {
             TranscriptItem::SessionStart { model, tools, .. } => {
                 lines.push(Line::from(vec![
@@ -183,28 +183,32 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 tool_name: _,
                 summary: _,
                 content,
-                duration_ms: _,
+                duration_ms,
             } => {
-                let parent_expanded = (0..i)
-                    .rev()
-                    .find(|&j| matches!(&run.items[j], TranscriptItem::ToolUse { .. }))
-                    .is_some_and(|_j| app.expanded);
-
-                if parent_expanded && let Some(content_text) = content {
-                    lines.push(Line::from(vec![
-                        Span::raw("         "),
-                        Span::styled("┌─ result ─", dim),
-                    ]));
-                    for content_line in content_text.lines().take(20) {
+                if app.expanded {
+                    if let Some(dm) = duration_ms {
+                        let secs = *dm as f64 / 1000.0;
                         lines.push(Line::from(vec![
                             Span::raw("         "),
-                            Span::styled(format!("│ {content_line}"), dim),
+                            Span::styled(format!("· {secs:.1}s"), dim),
                         ]));
                     }
-                    lines.push(Line::from(vec![
-                        Span::raw("         "),
-                        Span::styled("└──────────", dim),
-                    ]));
+                    if let Some(content_text) = content {
+                        lines.push(Line::from(vec![
+                            Span::raw("         "),
+                            Span::styled("┌─ result ─", dim),
+                        ]));
+                        for content_line in content_text.lines().take(20) {
+                            lines.push(Line::from(vec![
+                                Span::raw("         "),
+                                Span::styled(format!("│ {content_line}"), dim),
+                            ]));
+                        }
+                        lines.push(Line::from(vec![
+                            Span::raw("         "),
+                            Span::styled("└──────────", dim),
+                        ]));
+                    }
                 }
             }
             TranscriptItem::SubagentStart { description, .. } => {
@@ -227,14 +231,39 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 summary,
                 status,
                 cost_usd,
-                duration_ms: _,
-                tool_uses: _,
-                total_tokens: _,
+                duration_ms,
+                tool_uses,
+                total_tokens,
             } => {
-                let cost = cost_usd.map(|c| format!("${c:.2}")).unwrap_or_default();
+                let mut parts: Vec<String> = vec![status.clone()];
+                if let Some(ms) = duration_ms {
+                    let total_secs = ms / 1000;
+                    let mins = total_secs / 60;
+                    if mins > 0 {
+                        parts.push(format!("{mins}m"));
+                    } else {
+                        parts.push(format!("{total_secs}s"));
+                    }
+                }
+                if let Some(tools) = tool_uses {
+                    parts.push(format!("{tools} tools"));
+                }
+                if let Some(tokens) = total_tokens {
+                    if *tokens >= 1000 {
+                        parts.push(format!("{}k tok", tokens / 1000));
+                    } else {
+                        parts.push(format!("{tokens} tok"));
+                    }
+                }
+                if let Some(c) = cost_usd {
+                    parts.push(format!("${c:.2}"));
+                }
+                if !summary.is_empty() {
+                    parts.push(summary.clone());
+                }
                 lines.push(Line::from(vec![
                     Span::styled("  └─     ", Style::default().fg(Color::Yellow)),
-                    Span::styled(format!("{status} · {summary} · {cost}"), dim),
+                    Span::styled(parts.join(" · "), dim),
                 ]));
                 lines.push(Line::default());
             }
@@ -250,11 +279,81 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                     Span::styled(format!("{label}: {detail}"), dim),
                 ]));
             }
-            TranscriptItem::Thinking { .. } => {
-                // Not yet rendered
+            TranscriptItem::Thinking { text } => {
+                let char_count = text.len();
+                if app.expanded {
+                    lines.push(Line::from(vec![
+                        Span::styled("THINK    ", label_bold(Color::DarkGray)),
+                        Span::styled(format!("▼ {char_count} chars"), dim),
+                    ]));
+                    for think_line in text.lines().take(20) {
+                        let wrapped = soft_wrap(think_line, content_cols.saturating_sub(2));
+                        for chunk in &wrapped {
+                            lines.push(Line::from(vec![
+                                Span::raw("         "),
+                                Span::styled(format!("│ {chunk}"), dim),
+                            ]));
+                        }
+                    }
+                } else {
+                    lines.push(Line::from(vec![
+                        Span::styled("THINK    ", label_bold(Color::DarkGray)),
+                        Span::styled(format!("▶ {char_count} chars"), dim),
+                    ]));
+                }
+                lines.push(Line::default());
             }
-            TranscriptItem::RunResult { .. } => {
-                // Not yet rendered
+            TranscriptItem::RunResult {
+                is_error,
+                stop_reason,
+                num_turns,
+                total_cost_usd,
+                duration_ms,
+                result_text,
+            } => {
+                let (icon, color) = if *is_error {
+                    ("✗", Color::Red)
+                } else {
+                    ("✓", Color::Green)
+                };
+                let mut parts: Vec<String> = Vec::new();
+                if let Some(reason) = stop_reason {
+                    parts.push(reason.clone());
+                }
+                parts.push(format!("{num_turns} turns"));
+                if *total_cost_usd > 0.0 {
+                    parts.push(format!("${total_cost_usd:.2}"));
+                }
+                let total_secs = *duration_ms / 1000;
+                let mins = total_secs / 60;
+                let secs = total_secs % 60;
+                if mins > 0 {
+                    parts.push(format!("{mins}m {secs:02}s"));
+                } else if total_secs > 0 {
+                    parts.push(format!("{secs}s"));
+                }
+                lines.push(Line::from(vec![
+                    Span::styled("RESULT   ", label_bold(color)),
+                    Span::styled(
+                        format!("{icon} {}", parts.join(" · ")),
+                        Style::default().fg(color),
+                    ),
+                ]));
+                if app.expanded {
+                    if let Some(text) = result_text {
+                        for result_line in text.lines().take(20) {
+                            let wrapped =
+                                soft_wrap(result_line, content_cols.saturating_sub(2));
+                            for chunk in &wrapped {
+                                lines.push(Line::from(vec![
+                                    Span::raw("         "),
+                                    Span::styled(format!("│ {chunk}"), dim),
+                                ]));
+                            }
+                        }
+                    }
+                }
+                lines.push(Line::default());
             }
         }
     }
