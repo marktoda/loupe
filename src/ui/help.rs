@@ -71,8 +71,8 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
             Span::raw("Top / Bottom + auto-follow"),
         ]),
         Line::from(vec![
-            Span::styled("    Enter         ", Style::default().fg(Color::Cyan)),
-            Span::raw("Expand/collapse tool detail"),
+            Span::styled("    e             ", Style::default().fg(Color::Cyan)),
+            Span::raw("Expand/collapse details"),
         ]),
         Line::from(vec![
             Span::styled("    f             ", Style::default().fg(Color::Cyan)),
