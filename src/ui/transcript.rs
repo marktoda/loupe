@@ -116,7 +116,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
 
     let mut lines: Vec<Line> = Vec::new();
 
-    for (_i, item) in run.items.iter().enumerate() {
+    for item in &run.items {
         match item {
             TranscriptItem::SessionStart { model, tools, .. } => {
                 lines.push(Line::from(vec![
@@ -185,14 +185,15 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 content,
                 duration_ms,
             } => {
+                // Tool timing is always visible (not gated by expand)
+                if let Some(dm) = duration_ms {
+                    let secs = *dm as f64 / 1000.0;
+                    lines.push(Line::from(vec![
+                        Span::raw("         "),
+                        Span::styled(format!("· {secs:.1}s"), dim),
+                    ]));
+                }
                 if app.expanded {
-                    if let Some(dm) = duration_ms {
-                        let secs = *dm as f64 / 1000.0;
-                        lines.push(Line::from(vec![
-                            Span::raw("         "),
-                            Span::styled(format!("· {secs:.1}s"), dim),
-                        ]));
-                    }
                     if let Some(content_text) = content {
                         lines.push(Line::from(vec![
                             Span::raw("         "),
@@ -280,7 +281,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 ]));
             }
             TranscriptItem::Thinking { text } => {
-                let char_count = text.len();
+                let char_count = text.chars().count();
                 if app.expanded {
                     lines.push(Line::from(vec![
                         Span::styled("THINK    ", label_bold(Color::DarkGray)),
