@@ -1,15 +1,9 @@
 use crate::app::App;
-use crate::events::{FocusPane, ViewMode};
+use crate::events::FocusPane;
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
 
 pub fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let mode_str = match app.view_mode {
-        ViewMode::Transcript => "transcript",
-        ViewMode::Tools => "tools",
-        ViewMode::Raw => "raw",
-    };
-
     let run_count = app.runs.len();
 
     let duration_str = app
@@ -40,7 +34,7 @@ pub fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
     };
 
     let text = format!(
-        " {mode_str} | {run_count} runs | {duration_str} | {cost_str} | {follow_str} | [{focus_str}] Tab | / search  ? help  q quit"
+        " {run_count} runs | {duration_str} | {cost_str} | {follow_str} | [{focus_str}] Tab | / search  ? help  q quit"
     );
 
     // Reversed style = terminal's bg becomes fg and vice versa. Always readable.

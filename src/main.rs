@@ -21,7 +21,7 @@ mod ui;
 mod watcher;
 
 use app::App;
-use events::{AppEvent, ViewMode};
+use events::AppEvent;
 
 #[derive(Parser)]
 #[command(
@@ -32,19 +32,6 @@ use events::{AppEvent, ViewMode};
 struct Cli {
     /// Directory containing JSONL run logs
     path: PathBuf,
-
-    /// Initial view mode
-    #[arg(long, default_value = "transcript", value_parser = parse_view_mode)]
-    view: ViewMode,
-}
-
-fn parse_view_mode(s: &str) -> Result<ViewMode, String> {
-    match s {
-        "transcript" => Ok(ViewMode::Transcript),
-        "tools" => Ok(ViewMode::Tools),
-        "raw" => Ok(ViewMode::Raw),
-        _ => Err(format!("invalid view mode: {s}")),
-    }
 }
 
 fn setup_terminal() -> Result<Terminal<CrosstermBackend<io::Stdout>>> {
@@ -85,7 +72,7 @@ fn install_panic_hook() {
         // Best-effort terminal restore
         let _ = disable_raw_mode();
         let _ = execute!(io::stdout(), LeaveAlternateScreen);
-        let _ = crossterm::cursor::Show;
+        let _ = execute!(io::stdout(), crossterm::cursor::Show);
         default_hook(info);
     }));
 }
@@ -110,7 +97,7 @@ async fn main() -> Result<()> {
 }
 
 async fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, cli: Cli) -> Result<()> {
-    let mut app = App::new(cli.view);
+    let mut app = App::new();
     let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
     let cancel = CancellationToken::new();
 

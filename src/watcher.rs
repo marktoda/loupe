@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -30,6 +31,42 @@ fn discover_files(dir: &PathBuf) -> color_eyre::Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+#[allow(clippy::too_many_arguments)]
+fn process_parsed_line(
+    items: &mut Vec<TranscriptItem>,
+    stats: &mut RunStats,
+    session_id: &mut Option<String>,
+    started_at: &mut Option<chrono::DateTime<chrono::Utc>>,
+    new_items: Vec<TranscriptItem>,
+    meta: parser::LineMeta,
+    run_id: usize,
+    tx: &UnboundedSender<AppEvent>,
+) -> bool {
+    if session_id.is_none() {
+        *session_id = meta.session_id.clone();
+    }
+    if started_at.is_none() {
+        *started_at = meta.timestamp;
+    }
+    for item in &new_items {
+        match item {
+            TranscriptItem::ToolUse { .. } => stats.tool_calls += 1,
+            TranscriptItem::AssistantText { text, .. } => stats.assistant_chars += text.len(),
+            TranscriptItem::SubagentStart { .. } => stats.subagent_spawns += 1,
+            _ => {}
+        }
+    }
+    let has_result = if let Some(result) = meta.session_result {
+        stats.cost_usd = Some(result.total_cost_usd);
+        let _ = tx.send(AppEvent::RunCompleted { run_id, result });
+        true
+    } else {
+        false
+    };
+    items.extend(new_items);
+    has_result
+}
+
 fn parse_file_initial(
     run_id: usize,
     path: &PathBuf,
@@ -38,7 +75,6 @@ fn parse_file_initial(
     let content = std::fs::read_to_string(path)?;
     let bytes_read = content.len() as u64;
     let mut items = Vec::new();
-    let mut raw_lines = Vec::new();
     let mut stats = RunStats::default();
     let mut has_result = false;
     let mut session_id = None;
@@ -49,32 +85,19 @@ fn parse_file_initial(
             continue;
         }
         stats.total_lines += 1;
-        raw_lines.push(line.to_string());
 
         match parser::parse_line(line) {
             parser::ParseResult::Parsed(new_items, meta) => {
-                if session_id.is_none() {
-                    session_id = meta.session_id.clone();
-                }
-                if started_at.is_none() {
-                    started_at = meta.timestamp;
-                }
-                for item in &new_items {
-                    match item {
-                        TranscriptItem::ToolUse { .. } => stats.tool_calls += 1,
-                        TranscriptItem::AssistantText { text, .. } => {
-                            stats.assistant_chars += text.len()
-                        }
-                        TranscriptItem::SubagentStart { .. } => stats.subagent_spawns += 1,
-                        _ => {}
-                    }
-                }
-                if let Some(result) = meta.session_result {
-                    has_result = true;
-                    stats.cost_usd = Some(result.total_cost_usd);
-                    let _ = tx.send(AppEvent::RunCompleted { run_id, result });
-                }
-                items.extend(new_items);
+                has_result |= process_parsed_line(
+                    &mut items,
+                    &mut stats,
+                    &mut session_id,
+                    &mut started_at,
+                    new_items,
+                    meta,
+                    run_id,
+                    tx,
+                );
             }
             parser::ParseResult::Skipped => {}
             parser::ParseResult::Error(err) => {
@@ -88,11 +111,10 @@ fn parse_file_initial(
         }
     }
 
-    if !items.is_empty() || !raw_lines.is_empty() {
+    if !items.is_empty() {
         let _ = tx.send(AppEvent::RunUpdated {
             run_id,
             new_items: items,
-            raw_lines,
             stats_delta: stats,
             session_id,
             started_at,
@@ -113,8 +135,8 @@ fn parse_file_incremental(
     delta_acc: &mut DeltaAccumulator,
     is_active: bool,
 ) -> color_eyre::Result<()> {
-    let metadata = std::fs::metadata(path)?;
-    let file_size = metadata.len();
+    let mut file = std::fs::File::open(path)?;
+    let file_size = file.metadata()?.len();
 
     // Handle truncation — reset to re-parse from scratch
     if file_size < wf.bytes_read {
@@ -125,23 +147,22 @@ fn parse_file_incremental(
         return Ok(());
     }
 
-    let content = std::fs::read_to_string(path)?;
-    // Guard: content may be shorter than bytes_read if file changed between stat and read
-    let byte_offset = (wf.bytes_read as usize).min(content.len());
-    let new_content = &content[byte_offset..];
+    file.seek(SeekFrom::Start(wf.bytes_read))?;
+    let mut new_content = String::new();
+    file.read_to_string(&mut new_content)?;
+
     let mut items = Vec::new();
-    let mut raw_lines = Vec::new();
     let mut stats = RunStats::default();
     let mut session_id = None;
     let mut started_at = None;
-    let start_line = content[..byte_offset].lines().count();
+    // Approximate start line for error reporting
+    let start_line = wf.bytes_read as usize;
 
     for (i, line) in new_content.lines().enumerate() {
         if line.is_empty() {
             continue;
         }
         stats.total_lines += 1;
-        raw_lines.push(line.to_string());
 
         // For the active run, try Tier 2 streaming first
         if is_active
@@ -156,31 +177,16 @@ fn parse_file_incremental(
 
         match parser::parse_line(line) {
             parser::ParseResult::Parsed(new_items, meta) => {
-                if session_id.is_none() {
-                    session_id = meta.session_id.clone();
-                }
-                if started_at.is_none() {
-                    started_at = meta.timestamp;
-                }
-                for item in &new_items {
-                    match item {
-                        TranscriptItem::ToolUse { .. } => stats.tool_calls += 1,
-                        TranscriptItem::AssistantText { text, .. } => {
-                            stats.assistant_chars += text.len()
-                        }
-                        TranscriptItem::SubagentStart { .. } => stats.subagent_spawns += 1,
-                        _ => {}
-                    }
-                }
-                if let Some(result) = meta.session_result {
-                    wf.has_result = true;
-                    stats.cost_usd = Some(result.total_cost_usd);
-                    let _ = tx.send(AppEvent::RunCompleted {
-                        run_id: wf.run_id,
-                        result,
-                    });
-                }
-                items.extend(new_items);
+                wf.has_result |= process_parsed_line(
+                    &mut items,
+                    &mut stats,
+                    &mut session_id,
+                    &mut started_at,
+                    new_items,
+                    meta,
+                    wf.run_id,
+                    tx,
+                );
             }
             parser::ParseResult::Skipped => {}
             parser::ParseResult::Error(err) => {
@@ -196,11 +202,10 @@ fn parse_file_incremental(
 
     wf.bytes_read = file_size;
 
-    if !items.is_empty() || !raw_lines.is_empty() {
+    if !items.is_empty() {
         let _ = tx.send(AppEvent::RunUpdated {
             run_id: wf.run_id,
             new_items: items,
-            raw_lines,
             stats_delta: stats,
             session_id,
             started_at,

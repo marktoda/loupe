@@ -1,4 +1,4 @@
-use crate::events::{AppEvent, FocusPane, ViewMode};
+use crate::events::{AppEvent, FocusPane};
 use crate::run::{Run, RunStatus, TranscriptItem};
 use crate::ui::search::SearchState;
 use chrono::Utc;
@@ -8,7 +8,6 @@ use std::collections::HashSet;
 pub struct App {
     pub runs: Vec<Run>,
     pub selected_run: Option<usize>,
-    pub view_mode: ViewMode,
     pub focus: FocusPane,
     pub scroll_offset: usize,
     pub auto_follow: bool,
@@ -19,12 +18,17 @@ pub struct App {
     pub expanded_tools: HashSet<usize>,
 }
 
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl App {
-    pub fn new(view_mode: ViewMode) -> Self {
+    pub fn new() -> Self {
         Self {
             runs: Vec::new(),
             selected_run: None,
-            view_mode,
             focus: FocusPane::MainViewer,
             scroll_offset: 0,
             auto_follow: true,
@@ -48,14 +52,12 @@ impl App {
             AppEvent::RunUpdated {
                 run_id,
                 new_items,
-                raw_lines,
                 stats_delta,
                 session_id,
                 started_at,
             } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
                     run.items.extend(new_items);
-                    run.raw_lines.extend(raw_lines);
                     run.stats.merge(&stats_delta);
                     run.status = RunStatus::Running;
                     run.last_modified = Some(std::time::SystemTime::now());
@@ -186,18 +188,6 @@ impl App {
                 };
                 return;
             }
-            KeyCode::Char('1') => {
-                self.view_mode = ViewMode::Transcript;
-                return;
-            }
-            KeyCode::Char('2') => {
-                self.view_mode = ViewMode::Tools;
-                return;
-            }
-            KeyCode::Char('3') => {
-                self.view_mode = ViewMode::Raw;
-                return;
-            }
             KeyCode::Char('/') => {
                 self.search.is_active = true;
                 self.search.query.clear();
@@ -323,9 +313,8 @@ impl App {
     }
 
     fn scroll_to_bottom(&mut self) {
-        if let Some(run) = self.selected_run() {
-            self.scroll_offset = run.items.len().saturating_sub(1);
-        }
+        // auto_follow will position correctly on next render
+        self.auto_follow = true;
     }
 
     fn toggle_tool_expansion(&mut self) {
@@ -338,12 +327,8 @@ impl App {
                     .map(|item| matches!(item, TranscriptItem::ToolUse { .. }))
             })
             .unwrap_or(false);
-        if is_tool {
-            if self.expanded_tools.contains(&self.scroll_offset) {
-                self.expanded_tools.remove(&self.scroll_offset);
-            } else {
-                self.expanded_tools.insert(self.scroll_offset);
-            }
+        if is_tool && !self.expanded_tools.remove(&self.scroll_offset) {
+            self.expanded_tools.insert(self.scroll_offset);
         }
     }
 
@@ -421,7 +406,7 @@ mod tests {
 
     #[test]
     fn run_discovered_adds_to_list() {
-        let mut app = App::new(ViewMode::Transcript);
+        let mut app = App::new();
         app.update_state(AppEvent::RunDiscovered {
             run_id: 0,
             path: "a.jsonl".into(),
@@ -432,7 +417,7 @@ mod tests {
 
     #[test]
     fn run_updated_appends_items() {
-        let mut app = App::new(ViewMode::Transcript);
+        let mut app = App::new();
         app.update_state(AppEvent::RunDiscovered {
             run_id: 0,
             path: "a.jsonl".into(),
@@ -443,7 +428,6 @@ mod tests {
                 text: "hi".into(),
                 is_partial: false,
             }],
-            raw_lines: vec![],
             stats_delta: RunStats {
                 assistant_chars: 2,
                 ..Default::default()
@@ -457,7 +441,7 @@ mod tests {
 
     #[test]
     fn stream_delta_creates_partial() {
-        let mut app = App::new(ViewMode::Transcript);
+        let mut app = App::new();
         app.update_state(AppEvent::RunDiscovered {
             run_id: 0,
             path: "a.jsonl".into(),
@@ -478,7 +462,7 @@ mod tests {
 
     #[test]
     fn stream_block_done_replaces_partial() {
-        let mut app = App::new(ViewMode::Transcript);
+        let mut app = App::new();
         app.update_state(AppEvent::RunDiscovered {
             run_id: 0,
             path: "a.jsonl".into(),
@@ -502,14 +486,14 @@ mod tests {
 
     #[test]
     fn quit_on_q() {
-        let mut app = App::new(ViewMode::Transcript);
+        let mut app = App::new();
         app.handle_key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE));
         assert!(app.should_quit);
     }
 
     #[test]
     fn tab_toggles_focus() {
-        let mut app = App::new(ViewMode::Transcript);
+        let mut app = App::new();
         assert_eq!(app.focus, FocusPane::MainViewer);
         app.handle_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
         assert_eq!(app.focus, FocusPane::RunList);
@@ -518,17 +502,8 @@ mod tests {
     }
 
     #[test]
-    fn view_mode_switching() {
-        let mut app = App::new(ViewMode::Transcript);
-        app.handle_key(KeyEvent::new(KeyCode::Char('2'), KeyModifiers::NONE));
-        assert_eq!(app.view_mode, ViewMode::Tools);
-        app.handle_key(KeyEvent::new(KeyCode::Char('3'), KeyModifiers::NONE));
-        assert_eq!(app.view_mode, ViewMode::Raw);
-    }
-
-    #[test]
     fn scroll_disables_auto_follow() {
-        let mut app = App::new(ViewMode::Transcript);
+        let mut app = App::new();
         assert!(app.auto_follow);
         app.handle_key(KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE));
         assert!(!app.auto_follow);
@@ -536,7 +511,7 @@ mod tests {
 
     #[test]
     fn g_uppercase_re_enables_auto_follow() {
-        let mut app = App::new(ViewMode::Transcript);
+        let mut app = App::new();
         app.auto_follow = false;
         app.handle_key(KeyEvent::new(KeyCode::Char('G'), KeyModifiers::NONE));
         assert!(app.auto_follow);

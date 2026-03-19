@@ -16,7 +16,7 @@ fn highlight_text(text: &str, query: &str, base_style: Style) -> Vec<Span<'stati
     let mut last_end = 0;
 
     for (start, _) in text_lower.match_indices(&query_lower as &str) {
-        let end = start + query.len();
+        let end = start + query_lower.len();
         if start > last_end {
             spans.push(Span::styled(text[last_end..start].to_string(), base_style));
         }
@@ -48,18 +48,16 @@ fn soft_wrap(text: &str, max_cols: usize) -> Vec<&str> {
     let mut result = Vec::new();
     let mut remaining = text;
     while !remaining.is_empty() {
-        if remaining.chars().count() <= max_cols {
-            result.push(remaining);
-            break;
+        match remaining.char_indices().nth(max_cols) {
+            None => {
+                result.push(remaining);
+                break;
+            }
+            Some((byte_end, _)) => {
+                result.push(&remaining[..byte_end]);
+                remaining = &remaining[byte_end..];
+            }
         }
-        // Find the byte offset of the char at position max_cols
-        let byte_end = remaining
-            .char_indices()
-            .nth(max_cols)
-            .map(|(i, _)| i)
-            .unwrap_or(remaining.len());
-        result.push(&remaining[..byte_end]);
-        remaining = &remaining[byte_end..];
     }
     result
 }
@@ -161,7 +159,9 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                     Span::styled(summary.clone(), dim),
                 ]));
 
-                if app.expanded_tools.contains(&i) && let Some(input_val) = input {
+                if app.expanded_tools.contains(&i)
+                    && let Some(input_val) = input
+                {
                     let json_str = serde_json::to_string_pretty(input_val).unwrap_or_default();
                     for json_line in json_str.lines().take(15) {
                         lines.push(Line::from(vec![

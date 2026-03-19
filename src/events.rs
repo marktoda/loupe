@@ -13,7 +13,6 @@ pub enum AppEvent {
     RunUpdated {
         run_id: usize,
         new_items: Vec<TranscriptItem>,
-        raw_lines: Vec<String>,
         stats_delta: RunStats,
         session_id: Option<String>,
         started_at: Option<DateTime<Utc>>,
@@ -38,13 +37,6 @@ pub enum AppEvent {
     Key(KeyEvent),
     Resize(u16, u16),
     Tick,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ViewMode {
-    Transcript,
-    Tools,
-    Raw,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -300,7 +300,7 @@ fn extract_tool_summary(name: &str, input: Option<&Value>) -> String {
     if let Some(obj) = input.as_object()
         && let Some((key, val)) = obj.iter().next()
     {
-        let val_str = val.as_str().unwrap_or_else(|| val.as_str().unwrap_or(""));
+        let val_str = val.as_str().unwrap_or("");
         if !val_str.is_empty() {
             return format!("{key}={val_str}");
         }
@@ -311,11 +311,9 @@ fn extract_tool_summary(name: &str, input: Option<&Value>) -> String {
 
 fn parse_user(v: &Value) -> Vec<TranscriptItem> {
     // Check for tool_use_result enrichment field
-    let tool_use_result = v.get("tool_use_result");
-    if tool_use_result.is_none() {
+    let Some(tur) = v.get("tool_use_result") else {
         return vec![];
-    }
-    let tur = tool_use_result.unwrap();
+    };
 
     // Determine tool_name from enrichment
     let tool_name = if tur.get("file").is_some() {

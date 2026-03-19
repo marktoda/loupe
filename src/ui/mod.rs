@@ -1,13 +1,10 @@
 pub mod help;
-pub mod raw_view;
 pub mod run_list;
 pub mod search;
 pub mod status_bar;
-pub mod tools_view;
 pub mod transcript;
 
 use crate::app::App;
-use crate::events::ViewMode;
 use ratatui::prelude::*;
 
 pub fn render_app(frame: &mut Frame, app: &mut App) {
@@ -30,9 +27,14 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
             .split(vertical[0]);
 
         run_list::render_run_list(frame, horizontal[0], app, app.focus == FocusPane::RunList);
-        render_main_viewer(frame, horizontal[1], app, app.focus == FocusPane::MainViewer);
+        transcript::render_transcript(
+            frame,
+            horizontal[1],
+            app,
+            app.focus == FocusPane::MainViewer,
+        );
     } else {
-        render_main_viewer(frame, vertical[0], app, true);
+        transcript::render_transcript(frame, vertical[0], app, true);
     }
 
     // Status bar or search bar
@@ -46,12 +48,3 @@ pub fn render_app(frame: &mut Frame, app: &mut App) {
         help::render_help(frame, size);
     }
 }
-
-fn render_main_viewer(frame: &mut Frame, area: Rect, app: &mut App, focused: bool) {
-    match app.view_mode {
-        ViewMode::Transcript => transcript::render_transcript(frame, area, app, focused),
-        ViewMode::Tools => tools_view::render_tools(frame, area, app, focused),
-        ViewMode::Raw => raw_view::render_raw(frame, area, app, focused),
-    }
-}
-

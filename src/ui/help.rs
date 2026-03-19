@@ -25,10 +25,6 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
             Span::raw("Switch pane focus"),
         ]),
         Line::from(vec![
-            Span::styled("    1 / 2 / 3     ", Style::default().fg(Color::Cyan)),
-            Span::raw("Transcript / Tools / Raw view"),
-        ]),
-        Line::from(vec![
             Span::styled("    /             ", Style::default().fg(Color::Cyan)),
             Span::raw("Search"),
         ]),
