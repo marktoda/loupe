@@ -4,6 +4,7 @@ use crossterm::event::KeyEvent;
 use crate::run::{TranscriptItem, SessionResult, RunStats};
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum AppEvent {
     RunDiscovered { run_id: usize, path: PathBuf },
     RunUpdated {

@@ -284,14 +284,14 @@ fn extract_tool_summary(name: &str, input: Option<&Value>) -> String {
         _ => {}
     }
     // Fallback: first key=value from input object
-    if let Some(obj) = input.as_object() {
-        if let Some((key, val)) = obj.iter().next() {
-            let val_str = val.as_str().unwrap_or_else(|| val.as_str().unwrap_or(""));
-            if !val_str.is_empty() {
-                return format!("{key}={val_str}");
-            }
-            return format!("{key}={val}");
+    if let Some(obj) = input.as_object()
+        && let Some((key, val)) = obj.iter().next()
+    {
+        let val_str = val.as_str().unwrap_or_else(|| val.as_str().unwrap_or(""));
+        if !val_str.is_empty() {
+            return format!("{key}={val_str}");
         }
+        return format!("{key}={val}");
     }
     name.to_string()
 }

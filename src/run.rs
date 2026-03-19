@@ -3,6 +3,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Run {
     pub id: usize,
     pub path: PathBuf,
@@ -28,6 +29,7 @@ pub enum RunStatus {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum TranscriptItem {
     SessionStart { model: String, tools: Vec<String>, timestamp: DateTime<Utc> },
     AssistantText { text: String, is_partial: bool },
@@ -41,6 +43,7 @@ pub enum TranscriptItem {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SessionResult {
     pub subtype: String,
     pub is_error: bool,

@@ -144,15 +144,14 @@ fn parse_file_incremental(
         raw_lines.push(line.to_string());
 
         // For the active run, try Tier 2 streaming first
-        if is_active {
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
-                if v.get("type").and_then(|t| t.as_str()) == Some("stream_event") {
-                    if let Some(event) = streaming::process_stream_event(&v, wf.run_id, delta_acc) {
-                        let _ = tx.send(event);
-                    }
-                    continue;
-                }
+        if is_active
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(line)
+            && v.get("type").and_then(|t| t.as_str()) == Some("stream_event")
+        {
+            if let Some(event) = streaming::process_stream_event(&v, wf.run_id, delta_acc) {
+                let _ = tx.send(event);
             }
+            continue;
         }
 
         match parser::parse_line(line) {

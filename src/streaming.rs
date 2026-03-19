@@ -45,6 +45,7 @@ impl DeltaAccumulator {
         }
     }
 
+    #[allow(dead_code)]
     pub fn current_tool_input_json(&self) -> Option<&str> {
         if self.active_block_type.as_deref() == Some("tool_use") && !self.tool_input_buffer.is_empty() {
             Some(&self.tool_input_buffer)
@@ -53,6 +54,7 @@ impl DeltaAccumulator {
         }
     }
 
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         *self = Self::default();
     }

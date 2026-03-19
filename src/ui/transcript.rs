@@ -106,20 +106,20 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
             TranscriptItem::ToolUse { name, summary, input } => {
                 lines.push(Line::from(vec![
                     Span::styled("TOOL     ", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
-                    Span::styled(format!("{name}"), Style::default().fg(Color::Red)),
+                    Span::styled(name.to_string(), Style::default().fg(Color::Red)),
                     Span::raw("  "),
                     Span::styled(summary.clone(), Style::default().fg(Color::DarkGray)),
                 ]));
 
-                if app.expanded_tools.contains(&i) {
-                    if let Some(input_val) = input {
-                        let json_str = serde_json::to_string_pretty(input_val).unwrap_or_default();
-                        for json_line in json_str.lines().take(15) {
-                            lines.push(Line::from(vec![
-                                Span::raw("         "),
-                                Span::styled(format!("│ {json_line}"), Style::default().fg(Color::DarkGray)),
-                            ]));
-                        }
+                if app.expanded_tools.contains(&i)
+                    && let Some(input_val) = input
+                {
+                    let json_str = serde_json::to_string_pretty(input_val).unwrap_or_default();
+                    for json_line in json_str.lines().take(15) {
+                        lines.push(Line::from(vec![
+                            Span::raw("         "),
+                            Span::styled(format!("│ {json_line}"), Style::default().fg(Color::DarkGray)),
+                        ]));
                     }
                 }
             }
@@ -128,23 +128,23 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App) {
                     .find(|&j| matches!(&run.items[j], TranscriptItem::ToolUse { .. }))
                     .is_some_and(|j| app.expanded_tools.contains(&j));
 
-                if parent_expanded {
-                    if let Some(content_text) = content {
+                if parent_expanded
+                    && let Some(content_text) = content
+                {
+                    lines.push(Line::from(vec![
+                        Span::raw("         "),
+                        Span::styled("┌─ result ─", Style::default().fg(Color::DarkGray)),
+                    ]));
+                    for content_line in content_text.lines().take(20) {
                         lines.push(Line::from(vec![
                             Span::raw("         "),
-                            Span::styled("┌─ result ─", Style::default().fg(Color::DarkGray)),
-                        ]));
-                        for content_line in content_text.lines().take(20) {
-                            lines.push(Line::from(vec![
-                                Span::raw("         "),
-                                Span::styled(format!("│ {content_line}"), Style::default().fg(Color::DarkGray)),
-                            ]));
-                        }
-                        lines.push(Line::from(vec![
-                            Span::raw("         "),
-                            Span::styled("└──────────", Style::default().fg(Color::DarkGray)),
+                            Span::styled(format!("│ {content_line}"), Style::default().fg(Color::DarkGray)),
                         ]));
                     }
+                    lines.push(Line::from(vec![
+                        Span::raw("         "),
+                        Span::styled("└──────────", Style::default().fg(Color::DarkGray)),
+                    ]));
                 }
             }
             TranscriptItem::SubagentStart { description, .. } => {

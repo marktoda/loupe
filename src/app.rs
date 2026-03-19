@@ -69,22 +69,22 @@ impl App {
             }
             AppEvent::StreamDelta { run_id, text } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
-                    if let Some(last) = run.items.last_mut() {
-                        if matches!(last, TranscriptItem::AssistantText { is_partial: true, .. }) {
-                            *last = TranscriptItem::AssistantText { text, is_partial: true };
-                            return;
-                        }
+                    if let Some(last) = run.items.last_mut()
+                        && matches!(last, TranscriptItem::AssistantText { is_partial: true, .. })
+                    {
+                        *last = TranscriptItem::AssistantText { text, is_partial: true };
+                        return;
                     }
                     run.items.push(TranscriptItem::AssistantText { text, is_partial: true });
                 }
             }
             AppEvent::StreamBlockDone { run_id, item } => {
                 if let Some(run) = self.runs.get_mut(run_id) {
-                    if let Some(last) = run.items.last_mut() {
-                        if matches!(last, TranscriptItem::AssistantText { is_partial: true, .. }) {
-                            *last = item;
-                            return;
-                        }
+                    if let Some(last) = run.items.last_mut()
+                        && matches!(last, TranscriptItem::AssistantText { is_partial: true, .. })
+                    {
+                        *last = item;
+                        return;
                     }
                     run.items.push(item);
                 }
@@ -177,13 +177,12 @@ impl App {
     pub fn check_active_run_timeout(&mut self) {
         let now = std::time::SystemTime::now();
         for run in &mut self.runs {
-            if run.status == RunStatus::Running {
-                if let Some(last_mod) = run.last_modified {
-                    if now.duration_since(last_mod).unwrap_or_default().as_secs() > 60 {
-                        run.status = RunStatus::Unknown;
-                        self.dirty = true;
-                    }
-                }
+            if run.status == RunStatus::Running
+                && let Some(last_mod) = run.last_modified
+                && now.duration_since(last_mod).unwrap_or_default().as_secs() > 60
+            {
+                run.status = RunStatus::Unknown;
+                self.dirty = true;
             }
         }
     }

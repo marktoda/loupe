@@ -32,7 +32,7 @@ pub fn render_run_list(frame: &mut Frame, area: Rect, app: &mut App) {
 
         let line = Line::from(vec![
             Span::styled(format!(" {icon} "), icon_style),
-            Span::raw(format!("{name}")),
+            Span::raw(name.to_string()),
         ]);
         let detail = Line::from(vec![
             Span::raw("   "),
