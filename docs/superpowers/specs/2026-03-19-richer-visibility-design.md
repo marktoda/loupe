@@ -35,11 +35,11 @@ Key-value pairs, one per line, left-aligned:
 - Reflects whichever run is selected in the run list
 - Updates live as events arrive
 - If no run selected: dimmed placeholder
-- Only non-empty stats are shown (same pattern as status bar)
+- Only non-empty stats are shown: `Option` fields hidden when `None`, integer fields hidden when `0` (e.g., a run with 0 subagents hides the agents line)
 
 ### Layout
 
-The left sidebar keeps its 22-column width. The run list occupies `sidebar_height - 8` rows. The summary pane gets the bottom 8 rows (including its border). When the terminal is very short, the summary pane takes priority up to a minimum run list height of 3 rows.
+The left sidebar keeps its 22-column width. Split `horizontal[0]` vertically in `src/ui/mod.rs` using `Layout::vertical([Constraint::Min(3), Constraint::Length(8)])`. The run list gets the top chunk (minimum 3 rows), the summary pane gets the bottom 8 rows (including its border). When the terminal is very short, `Min(3)` ensures the run list never disappears entirely; the summary pane naturally shrinks if there isn't room for both.
 
 ## 2. Thinking Blocks
 
@@ -61,8 +61,9 @@ THINK    ▼ 847 chars                     (expanded)
 - Collapsed by default, controlled by the global expand/collapse toggle (see section 4)
 - Collapsed: shows `▶` and character count
 - Expanded: shows `▼`, character count, then content lines prefixed with `│`, truncated at 20 lines, soft-wrapped to content width
-- Searchable (included in search matching against the text content)
+- Searchable: `recompute_search` in `app.rs` must add a match arm for `TranscriptItem::Thinking` (and `TranscriptItem::RunResult`) — the existing `_ => false` catch-all would silently exclude them
 - Style: dimmed (thinking is secondary to the assistant's visible output)
+- Note: thinking content only appears after the full `assistant` event is written to the JSONL file — there is no live streaming preview of thinking blocks (the `DeltaAccumulator` skips `thinking_delta` events). This is acceptable; live streaming is for the visible assistant text.
 
 ### Data Model
 
@@ -93,13 +94,13 @@ In `parse_assistant`, the `"thinking"` block type currently skips. Change to:
 TOOL     Read  src/routing/ssp/mod.rs  · 0.4s
 ```
 
-Approximate duration displayed after the tool summary, dimmed. Computed by tracking wall-clock time: record `Instant::now()` when a `ToolUse` item is added, and compute the delta when the corresponding `ToolResult` arrives.
+Approximate duration displayed after the tool summary, dimmed. Add `duration_ms: Option<u64>` to the `ToolResult` variant.
 
-Implementation: add `created_at: Option<Instant>` to `ToolUse` and `ToolResult` variants isn't viable (Instant isn't serializable and pollutes the data model). Instead, track timing in a separate `HashMap<usize, Instant>` in `App` keyed by item index. When rendering a `ToolUse`, look up elapsed time if a subsequent `ToolResult` exists.
+**Live runs:** Track wall-clock time in a side map (`tool_timestamps: HashMap<usize, Instant>` on `Run`). When the watcher sends `RunUpdated` with new items, stamp each `ToolUse` with `Instant::now()` keyed by its item index. When a `ToolResult` arrives in a subsequent batch, compute the delta from the preceding `ToolUse` timestamp and store it on the `ToolResult`.
 
-Simpler approach: when the watcher sends `RunUpdated` with new items, stamp each `ToolUse` with the current time in a side map (`tool_timestamps: HashMap<usize, Instant>` on `Run`). When a `ToolResult` arrives, compute delta from the preceding `ToolUse` timestamp. Store the duration on the `ToolResult` item itself as `duration_ms: Option<u64>`.
+**Limitation:** Tool timing is only available for live runs where the `ToolUse` and `ToolResult` arrive in separate watcher batches (separated by at least the 200ms coalesce window). For the initial file parse of completed runs, all items arrive in a single batch — timing will be unavailable and omitted. For fast-completing tools in live runs, the same-batch case applies. This is an acceptable trade-off: timing is most useful for slow, long-running tools (Bash commands, large reads) which naturally span multiple batches.
 
-If timing can't be computed (e.g., no preceding ToolUse, or events arrive in same batch), omit the duration — no placeholder.
+If timing can't be computed (no preceding ToolUse, or same-batch arrival), omit the duration — no placeholder.
 
 ### Subagent End Stats
 
@@ -120,7 +121,7 @@ TranscriptItem::SubagentEnd {
 }
 ```
 
-Render non-None fields inline, dimmed, separated by ` · `.
+Render non-None fields inline, dimmed, separated by ` · `. Build a `Vec<String>` of present segments, then join with ` · ` — avoids trailing separator bugs. Apply this same pattern to the existing `SubagentEnd` rendering which currently has a trailing ` · ` when `cost_usd` is `None`.
 
 ### Run Result in Transcript
 
@@ -149,7 +150,7 @@ TranscriptItem::RunResult {
 }
 ```
 
-Emitted when a `"result"` event is parsed. `result_text` is available for expansion via the global toggle (shows the final result summary from Claude).
+Emitted when a `"result"` event is parsed. The `parse_result_event` function must return the `RunResult` item, and its call site in `parse_line` must change from `ParseResult::Parsed(vec![], meta)` to include the returned item. `result_text` is available for expansion via the global toggle (shows the final result summary from Claude).
 
 ## 4. Global Expand/Collapse
 
@@ -182,6 +183,8 @@ All expansion checks change from `app.expanded_tools.contains(&i)` to `app.expan
 
 The `toggle_tool_expansion` method is removed. The `Enter` key in MainViewer is freed up (or can be repurposed later).
 
+All `expanded_tools.clear()` call sites in `app.rs` (in `RunDiscovered`, `select_next_run`, `select_prev_run`, and `jump_to_active_run` handlers) are removed — the global toggle persists across run switches.
+
 ## 5. Data Model Changes Summary
 
 ### New TranscriptItem variants
@@ -195,8 +198,8 @@ The `toggle_tool_expansion` method is removed. The `Enter` key in MainViewer is 
 
 ### RunStats additions
 
-- `num_turns: u64` — incremented from result event
-- `token_count: u64` — accumulated from result event's usage or task_notification usage
+- `num_turns: u64` — set from `SessionResult.num_turns` when a `result` event arrives (via `RunCompleted` handler in `app.rs`). `RunStats::merge` must be updated to handle this field.
+- `token_count: u64` — set from `result` event's top-level `usage.input_tokens + usage.output_tokens` when available. For ongoing runs before a `result` event, this will be 0 (token counts aren't available per-message in the JSONL format). Subagent token counts from `task_notification` are NOT added separately — the outer run's `result` event includes the total across all subagents, so adding both would double-count.
 
 ### App state changes
 
@@ -208,7 +211,8 @@ The `toggle_tool_expansion` method is removed. The `Enter` key in MainViewer is 
 
 - `parse_assistant`: emit `Thinking` items instead of skipping thinking blocks
 - `parse_system` (`task_notification`): parse `duration_ms`, `tool_uses`, `total_tokens` from usage object
-- `parse_result_event`: emit `RunResult` transcript item in addition to setting `meta.session_result`
+- `parse_result_event`: return `RunResult` transcript item in addition to setting `meta.session_result`; call site in `parse_line` must include the returned item instead of `vec![]`
+- `parse_result_event`: parse `usage.input_tokens` and `usage.output_tokens` into `meta.stats_delta.token_count`
 
 ## 6. Files to Modify
 
