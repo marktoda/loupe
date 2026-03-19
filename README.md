@@ -1,10 +1,10 @@
 # loupe
 
-A terminal viewer for [Claude Code](https://claude.ai/claude-code) sessions.
+A terminal viewer for [Claude Code](https://claude.ai/claude-code) headless sessions.
 
-Point it at a directory of JSONL logs from `claude --output-format stream-json` and get a navigable, searchable transcript — assistant text, tool calls, subagent activity, costs, and errors, rendered in real time as the session runs.
+Headless LLM sessions are everywhere now — autonomous research loops, CI agents, overnight batch jobs. You kick off `claude -p` with `--output-format stream-json` and walk away. But then you want to check in. What's it doing? Is it stuck? Did it finish? The interactive TUI isn't available in headless mode, and `tail -f | jq` gets old fast.
 
-Built for overnight autonomous loops where you want to check in on progress, scroll through history, and search across runs without parsing raw JSON.
+Loupe gives you a read-only TUI over those JSONL logs. Point it at a directory, get a navigable transcript with live streaming, tool call detail, subagent tracking, and search — across as many sessions as the loop has produced.
 
 ```
 loupe ./autoroute/logs/
