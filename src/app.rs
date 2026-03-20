@@ -65,42 +65,7 @@ impl App {
                     }) {
                         run.items.pop();
                     }
-                    let new_items_len = new_items.len();
                     run.items.extend(new_items);
-
-                    // Track tool timestamps for timing (two-pass to satisfy borrow checker)
-                    let base_idx = run.items.len() - new_items_len;
-                    let now = std::time::Instant::now();
-                    let mut timing_updates: Vec<(usize, u64)> = Vec::new();
-                    for offset in 0..new_items_len {
-                        let idx = base_idx + offset;
-                        match &run.items[idx] {
-                            TranscriptItem::ToolUse { .. } => {
-                                run.tool_timestamps.insert(idx, now);
-                            }
-                            TranscriptItem::ToolResult {
-                                duration_ms: None, ..
-                            } => {
-                                if let Some(tool_idx) = (0..idx).rev().find(|&j| {
-                                    matches!(&run.items[j], TranscriptItem::ToolUse { .. })
-                                }) {
-                                    if let Some(start) = run.tool_timestamps.remove(&tool_idx) {
-                                        timing_updates
-                                            .push((idx, start.elapsed().as_millis() as u64));
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    for (idx, ms) in timing_updates {
-                        if let TranscriptItem::ToolResult { duration_ms, .. } =
-                            &mut run.items[idx]
-                        {
-                            *duration_ms = Some(ms);
-                        }
-                    }
-
                     run.stats.merge(&stats_delta);
                     run.status = RunStatus::Running;
                     run.last_modified = Some(std::time::SystemTime::now());

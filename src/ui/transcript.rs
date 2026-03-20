@@ -198,16 +198,8 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 tool_name: _,
                 summary: _,
                 content,
-                duration_ms,
+                duration_ms: _,
             } => {
-                // Tool timing is always visible (not gated by expand)
-                if let Some(dm) = duration_ms {
-                    let secs = *dm as f64 / 1000.0;
-                    lines.push(Line::from(vec![
-                        Span::raw("         "),
-                        Span::styled(format!("· {secs:.1}s"), dim),
-                    ]));
-                }
                 if app.expanded {
                     if let Some(content_text) = content {
                         lines.push(Line::from(vec![

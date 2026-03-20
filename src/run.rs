@@ -1,8 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use std::path::PathBuf;
-use std::time::Instant;
-
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Run {
@@ -18,7 +16,6 @@ pub struct Run {
     pub bytes_read: u64,
     pub result: Option<SessionResult>,
     pub last_modified: Option<std::time::SystemTime>,
-    pub tool_timestamps: std::collections::HashMap<usize, Instant>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,7 +124,6 @@ impl Run {
             bytes_read: 0,
             result: None,
             last_modified: None,
-            tool_timestamps: std::collections::HashMap::new(),
         }
     }
 
