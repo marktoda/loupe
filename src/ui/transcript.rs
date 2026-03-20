@@ -70,6 +70,20 @@ fn soft_wrap(text: &str, max_cols: usize) -> Vec<&str> {
     result
 }
 
+/// Truncate a string to fit within `max_chars` characters, appending `…` if truncated.
+fn truncate(s: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+    let char_count = s.chars().count();
+    if char_count <= max_chars {
+        s.to_string()
+    } else {
+        let truncated: String = s.chars().take(max_chars.saturating_sub(1)).collect();
+        format!("{truncated}…")
+    }
+}
+
 pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: bool) {
     let border_style = if focused {
         Style::default().fg(Color::Blue)
@@ -122,7 +136,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 lines.push(Line::from(vec![
                     Span::styled("SESSION  ", label_bold(Color::Green)),
                     Span::styled(
-                        format!("{model} · {} tools", tools.len()),
+                        truncate(&format!("{model} · {} tools", tools.len()), content_cols),
                         Style::default().fg(Color::Green),
                     ),
                 ]));
@@ -160,11 +174,12 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 summary,
                 input,
             } => {
+                let summary_max = content_cols.saturating_sub(name.len() + 2);
                 lines.push(Line::from(vec![
                     Span::styled("TOOL     ", label_bold(Color::Magenta)),
                     Span::styled(name.to_string(), Style::default().fg(Color::Red)),
                     Span::raw("  "),
-                    Span::styled(summary.clone(), dim),
+                    Span::styled(truncate(summary, summary_max), dim),
                 ]));
 
                 if app.expanded
@@ -215,7 +230,10 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
             TranscriptItem::SubagentStart { description, .. } => {
                 lines.push(Line::from(vec![
                     Span::styled("AGENT    ", label_bold(Color::Yellow)),
-                    Span::styled(description.clone(), Style::default().fg(Color::Yellow)),
+                    Span::styled(
+                        truncate(description, content_cols),
+                        Style::default().fg(Color::Yellow),
+                    ),
                 ]));
             }
             TranscriptItem::SubagentProgress {
@@ -223,9 +241,10 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 tool_name,
             } => {
                 let tool = tool_name.as_deref().unwrap_or("");
+                let text = format!("{tool}  {description}");
                 lines.push(Line::from(vec![
                     Span::styled("  ├─     ", Style::default().fg(Color::Yellow)),
-                    Span::styled(format!("{tool}  {description}"), dim),
+                    Span::styled(truncate(&text, content_cols), dim),
                 ]));
             }
             TranscriptItem::SubagentEnd {
