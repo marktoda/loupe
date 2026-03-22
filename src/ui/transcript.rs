@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, ExpandMode};
 use crate::run::TranscriptItem;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
@@ -196,23 +196,28 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                     Span::styled(truncate(summary, summary_max), dim),
                 ]));
 
-                if app.expanded
-                    && let Some(input_val) = input
-                {
-                    if name == "Edit" {
-                        let edit_lines = super::highlight::render_edit(
-                            input_val,
-                            content_cols,
-                        );
-                        lines.extend(edit_lines);
-                    } else {
-                        let json_str =
-                            serde_json::to_string_pretty(input_val).unwrap_or_default();
-                        for json_line in json_str.lines().take(15) {
-                            lines.push(Line::from(vec![
-                                Span::raw("         "),
-                                Span::styled(format!("│ {json_line}"), dim),
-                            ]));
+                if let Some(input_val) = input {
+                    let is_edit = name == "Edit";
+                    let show = match app.expand_mode {
+                        ExpandMode::Off => false,
+                        ExpandMode::Edits => is_edit,
+                        ExpandMode::All => true,
+                    };
+                    if show {
+                        if is_edit {
+                            lines.extend(super::highlight::render_edit(
+                                input_val,
+                                content_cols,
+                            ));
+                        } else {
+                            let json_str =
+                                serde_json::to_string_pretty(input_val).unwrap_or_default();
+                            for json_line in json_str.lines().take(15) {
+                                lines.push(Line::from(vec![
+                                    Span::raw("         "),
+                                    Span::styled(format!("│ {json_line}"), dim),
+                                ]));
+                            }
                         }
                     }
                 }
@@ -223,14 +228,19 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 content,
                 duration_ms: _,
             } => {
-                if app.expanded {
-                    if let Some(content_text) = content {
-                        if tool_name == "apply_patch" {
-                            let patch_lines = super::highlight::render_patch(
+                if let Some(content_text) = content {
+                    let is_patch = tool_name == "apply_patch";
+                    let show = match app.expand_mode {
+                        ExpandMode::Off => false,
+                        ExpandMode::Edits => is_patch,
+                        ExpandMode::All => true,
+                    };
+                    if show {
+                        if is_patch {
+                            lines.extend(super::highlight::render_patch(
                                 content_text,
                                 content_cols,
-                            );
-                            lines.extend(patch_lines);
+                            ));
                         } else {
                             lines.push(Line::from(vec![
                                 Span::raw("         "),
@@ -324,7 +334,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
             }
             TranscriptItem::Thinking { text } => {
                 let char_count = text.chars().count();
-                if app.expanded {
+                if app.expand_mode == ExpandMode::All {
                     lines.push(Line::from(vec![
                         Span::styled("THINK    ", label_bold(Color::DarkGray)),
                         Span::styled(format!("▼ {char_count} chars"), dim),
@@ -382,7 +392,7 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                         Style::default().fg(color),
                     ),
                 ]));
-                if app.expanded {
+                if app.expand_mode == ExpandMode::All {
                     if let Some(text) = result_text {
                         for result_line in text.lines().take(20) {
                             let wrapped =

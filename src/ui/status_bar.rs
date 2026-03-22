@@ -1,4 +1,4 @@
-use crate::app::App;
+use crate::app::{App, ExpandMode};
 use crate::events::FocusPane;
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
@@ -21,6 +21,12 @@ pub fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
 
     if let Some(c) = app.selected_run().and_then(|r| r.stats.cost_usd) {
         parts.push(format!("${c:.2}"));
+    }
+
+    match app.expand_mode {
+        ExpandMode::Off => {}
+        ExpandMode::Edits => parts.push("edits".into()),
+        ExpandMode::All => parts.push("expand".into()),
     }
 
     if app.auto_follow {

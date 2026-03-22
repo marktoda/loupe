@@ -13,7 +13,15 @@ pub struct App {
     pub show_help: bool,
     pub should_quit: bool,
     pub dirty: bool,
-    pub expanded: bool,
+    pub expand_mode: ExpandMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExpandMode {
+    #[default]
+    Off,
+    Edits, // Show Edit/apply_patch diffs only
+    All,   // Show all tool inputs, results, thinking
 }
 
 impl Default for App {
@@ -34,7 +42,7 @@ impl App {
             show_help: false,
             should_quit: false,
             dirty: true,
-            expanded: false,
+            expand_mode: ExpandMode::Off,
         }
     }
 
@@ -268,7 +276,11 @@ impl App {
                     self.auto_follow = true;
                 }
                 KeyCode::Char('e') => {
-                    self.expanded = !self.expanded;
+                    self.expand_mode = match self.expand_mode {
+                        ExpandMode::Off => ExpandMode::Edits,
+                        ExpandMode::Edits => ExpandMode::All,
+                        ExpandMode::All => ExpandMode::Off,
+                    };
                 }
                 KeyCode::Char('f') => {
                     self.scroll_to_bottom();
@@ -532,12 +544,14 @@ mod tests {
     }
 
     #[test]
-    fn e_toggles_expanded() {
+    fn e_cycles_expand_mode() {
         let mut app = App::new();
-        assert!(!app.expanded);
+        assert_eq!(app.expand_mode, ExpandMode::Off);
         app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
-        assert!(app.expanded);
+        assert_eq!(app.expand_mode, ExpandMode::Edits);
         app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
-        assert!(!app.expanded);
+        assert_eq!(app.expand_mode, ExpandMode::All);
+        app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
+        assert_eq!(app.expand_mode, ExpandMode::Off);
     }
 }

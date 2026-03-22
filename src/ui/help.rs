@@ -63,7 +63,7 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
             Span::raw("Scroll"),
         ]),
         Line::from(vec![
-            Span::styled("    PgUp/PgDn     ", Style::default().fg(Color::Cyan)),
+            Span::styled("    C-u/C-d PgUp/Dn", Style::default().fg(Color::Cyan)),
             Span::raw("Page scroll"),
         ]),
         Line::from(vec![
@@ -72,7 +72,7 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
         ]),
         Line::from(vec![
             Span::styled("    e             ", Style::default().fg(Color::Cyan)),
-            Span::raw("Expand/collapse details"),
+            Span::raw("Cycle: off → edits → all"),
         ]),
         Line::from(vec![
             Span::styled("    f             ", Style::default().fg(Color::Cyan)),
