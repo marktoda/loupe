@@ -276,10 +276,17 @@ impl App {
                     self.auto_follow = true;
                 }
                 KeyCode::Char('e') => {
-                    self.expand_mode = match self.expand_mode {
-                        ExpandMode::Off => ExpandMode::Edits,
-                        ExpandMode::Edits => ExpandMode::All,
-                        ExpandMode::All => ExpandMode::Off,
+                    self.expand_mode = if self.expand_mode == ExpandMode::Edits {
+                        ExpandMode::Off
+                    } else {
+                        ExpandMode::Edits
+                    };
+                }
+                KeyCode::Char('E') => {
+                    self.expand_mode = if self.expand_mode == ExpandMode::All {
+                        ExpandMode::Off
+                    } else {
+                        ExpandMode::All
                     };
                 }
                 KeyCode::Char('f') => {
@@ -544,14 +551,22 @@ mod tests {
     }
 
     #[test]
-    fn e_cycles_expand_mode() {
+    fn e_toggles_edits_mode() {
         let mut app = App::new();
         assert_eq!(app.expand_mode, ExpandMode::Off);
         app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
         assert_eq!(app.expand_mode, ExpandMode::Edits);
         app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
+        assert_eq!(app.expand_mode, ExpandMode::Off);
+    }
+
+    #[test]
+    fn shift_e_toggles_all_mode() {
+        let mut app = App::new();
+        assert_eq!(app.expand_mode, ExpandMode::Off);
+        app.handle_key(KeyEvent::new(KeyCode::Char('E'), KeyModifiers::NONE));
         assert_eq!(app.expand_mode, ExpandMode::All);
-        app.handle_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE));
+        app.handle_key(KeyEvent::new(KeyCode::Char('E'), KeyModifiers::NONE));
         assert_eq!(app.expand_mode, ExpandMode::Off);
     }
 }

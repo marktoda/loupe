@@ -72,7 +72,11 @@ pub fn render_help(frame: &mut Frame, area: Rect) {
         ]),
         Line::from(vec![
             Span::styled("    e             ", Style::default().fg(Color::Cyan)),
-            Span::raw("Cycle: off → edits → all"),
+            Span::raw("Toggle edit diffs"),
+        ]),
+        Line::from(vec![
+            Span::styled("    E             ", Style::default().fg(Color::Cyan)),
+            Span::raw("Toggle all details"),
         ]),
         Line::from(vec![
             Span::styled("    f             ", Style::default().fg(Color::Cyan)),

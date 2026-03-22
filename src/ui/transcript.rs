@@ -122,8 +122,13 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
     } else {
         Style::default().add_modifier(Modifier::DIM)
     };
+    let title = match app.expand_mode {
+        ExpandMode::Off => " Transcript ",
+        ExpandMode::Edits => " Transcript [edits] ",
+        ExpandMode::All => " Transcript [all] ",
+    };
     let block = Block::default()
-        .title(" Transcript ")
+        .title(title)
         .borders(Borders::ALL)
         .border_style(border_style);
     let inner = block.inner(area);
