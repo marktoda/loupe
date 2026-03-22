@@ -83,6 +83,9 @@ pub enum TranscriptItem {
         duration_ms: u64,
         result_text: Option<String>,
     },
+    UserMessage {
+        text: String,
+    },
 }
 
 #[derive(Debug, Clone)]

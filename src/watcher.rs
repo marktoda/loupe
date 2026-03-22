@@ -53,6 +53,7 @@ fn process_parsed_line(
             TranscriptItem::ToolUse { .. } => stats.tool_calls += 1,
             TranscriptItem::AssistantText { text, .. } => stats.assistant_chars += text.len(),
             TranscriptItem::SubagentStart { .. } => stats.subagent_spawns += 1,
+            TranscriptItem::UserMessage { .. } => {}
             _ => {}
         }
     }

@@ -361,6 +361,9 @@ impl App {
                             stop_reason.as_deref().unwrap_or("").to_lowercase().contains(&query_lower)
                                 || result_text.as_deref().unwrap_or("").to_lowercase().contains(&query_lower)
                         }
+                        TranscriptItem::UserMessage { text } => {
+                            text.to_lowercase().contains(&query_lower)
+                        }
                         _ => false,
                     };
                     if hit { Some(i) } else { None }

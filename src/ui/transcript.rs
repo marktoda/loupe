@@ -367,6 +367,27 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 }
                 lines.push(Line::default());
             }
+            TranscriptItem::UserMessage { text } => {
+                for (li, source_line) in text.lines().enumerate() {
+                    let wrapped = soft_wrap(source_line, content_cols);
+                    for (wi, chunk) in wrapped.iter().enumerate() {
+                        let content_spans = if search_active {
+                            highlight_text(chunk, &query, default)
+                        } else {
+                            vec![Span::styled(chunk.to_string(), default)]
+                        };
+                        let prefix = if li == 0 && wi == 0 {
+                            Span::styled("USER     ", label_bold(Color::Blue))
+                        } else {
+                            Span::raw("         ")
+                        };
+                        let mut spans = vec![prefix];
+                        spans.extend(content_spans);
+                        lines.push(Line::from(spans));
+                    }
+                }
+                lines.push(Line::default());
+            }
         }
     }
 
