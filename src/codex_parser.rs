@@ -209,16 +209,26 @@ fn parse_response_item(payload: &Value, _meta: &mut LineMeta) -> Option<Vec<Tran
                 .unwrap_or("unknown")
                 .to_string();
 
-            let summary = input_text
-                .lines()
-                .next()
-                .unwrap_or(&name);
-            let summary = truncate_str(summary, 80).to_string();
+            // For apply_patch, extract file paths from "*** Update File:" lines
+            let summary = if name == "apply_patch" {
+                let files: Vec<&str> = input_text
+                    .lines()
+                    .filter_map(|l| l.strip_prefix("*** Update File: "))
+                    .collect();
+                if files.is_empty() {
+                    name.clone()
+                } else {
+                    files.join(", ")
+                }
+            } else {
+                let first = input_text.lines().next().unwrap_or(&name);
+                truncate_str(first, 80).to_string()
+            };
 
             Some(vec![
                 TranscriptItem::ToolUse {
                     name: name.clone(),
-                    summary: summary.clone(),
+                    summary,
                     input: None,
                 },
                 TranscriptItem::ToolResult {
