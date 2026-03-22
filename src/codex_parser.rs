@@ -209,16 +209,23 @@ fn parse_response_item(payload: &Value, _meta: &mut LineMeta) -> Option<Vec<Tran
                 .unwrap_or("unknown")
                 .to_string();
 
-            // For apply_patch, extract file paths from "*** Update File:" lines
+            // For apply_patch, extract file paths and diff stats
             let summary = if name == "apply_patch" {
                 let files: Vec<&str> = input_text
                     .lines()
                     .filter_map(|l| l.strip_prefix("*** Update File: "))
                     .collect();
+                let added = input_text.lines().filter(|l| l.starts_with('+')).count();
+                let removed = input_text.lines().filter(|l| l.starts_with('-')).count();
+                let stats = if added > 0 || removed > 0 {
+                    format!("  +{added} -{removed}")
+                } else {
+                    String::new()
+                };
                 if files.is_empty() {
                     name.clone()
                 } else {
-                    files.join(", ")
+                    format!("{}{stats}", files.join(", "))
                 }
             } else {
                 let first = input_text.lines().next().unwrap_or(&name);

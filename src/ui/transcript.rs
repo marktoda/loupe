@@ -214,11 +214,9 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 content,
                 duration_ms: _,
             } => {
-                let is_patch = tool_name == "apply_patch";
-                // Always show apply_patch content; other results need expanded mode
-                if is_patch || app.expanded {
+                if app.expanded {
                     if let Some(content_text) = content {
-                        if is_patch {
+                        if tool_name == "apply_patch" {
                             let patch_lines = super::highlight::render_patch(
                                 content_text,
                                 content_cols,
