@@ -3,6 +3,39 @@ use serde_json::Value;
 
 use crate::run::{RunStats, SessionResult, TranscriptItem};
 
+/// Detected transcript format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Format {
+    ClaudeCode,
+    Codex,
+}
+
+/// Trait for parsing JSONL transcript lines into TranscriptItems.
+pub trait TranscriptParser: Send + Sync {
+    fn parse_line(&self, line: &str) -> ParseResult;
+}
+
+/// Detect transcript format from the first JSONL line.
+/// Codex wraps all events in `{ timestamp, type, payload }`.
+/// Claude Code has flat top-level events with no `payload` wrapper.
+pub fn detect_format(first_line: &str) -> Option<Format> {
+    let v: serde_json::Value = serde_json::from_str(first_line).ok()?;
+    if v.get("payload").is_some() {
+        Some(Format::Codex)
+    } else {
+        Some(Format::ClaudeCode)
+    }
+}
+
+/// Parser for Claude Code's JSONL stream format.
+pub struct ClaudeCodeParser;
+
+impl TranscriptParser for ClaudeCodeParser {
+    fn parse_line(&self, line: &str) -> ParseResult {
+        parse_line(line)
+    }
+}
+
 /// Metadata extracted from a line that applies to the Run, not the transcript
 #[derive(Debug, Default)]
 pub struct LineMeta {
@@ -269,7 +302,7 @@ fn parse_assistant(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
     items
 }
 
-fn extract_tool_summary(name: &str, input: Option<&Value>) -> String {
+pub fn extract_tool_summary(name: &str, input: Option<&Value>) -> String {
     let Some(input) = input else {
         return name.to_string();
     };
