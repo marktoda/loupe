@@ -243,6 +243,14 @@ impl App {
                     self.scroll_offset = self.scroll_offset.saturating_sub(1);
                     self.auto_follow = false;
                 }
+                KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.scroll_offset = self.scroll_offset.saturating_add(20);
+                    self.auto_follow = false;
+                }
+                KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.scroll_offset = self.scroll_offset.saturating_sub(20);
+                    self.auto_follow = false;
+                }
                 KeyCode::PageDown => {
                     self.scroll_offset = self.scroll_offset.saturating_add(20);
                     self.auto_follow = false;
