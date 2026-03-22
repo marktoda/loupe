@@ -41,6 +41,66 @@ fn parse_minimal_session_fixture() {
 }
 
 #[test]
+fn parse_codex_session_fixture() {
+    use loupe::codex_parser::CodexParser;
+    use loupe::parser::TranscriptParser;
+
+    let content = std::fs::read_to_string("tests/fixtures/codex_session.jsonl").unwrap();
+    let parser = CodexParser;
+    let mut items = Vec::new();
+    let mut result = None;
+
+    for line in content.lines() {
+        if let loupe::parser::ParseResult::Parsed(new_items, meta) = parser.parse_line(line) {
+            items.extend(new_items);
+            if let Some(r) = meta.session_result {
+                result = Some(r);
+            }
+        }
+    }
+
+    assert!(!items.is_empty(), "Should have parsed some items");
+    assert!(
+        items.iter().any(|i| matches!(i, loupe::run::TranscriptItem::SessionStart { .. })),
+        "Should have SessionStart"
+    );
+    assert!(
+        items.iter().any(|i| matches!(i, loupe::run::TranscriptItem::AssistantText { .. })),
+        "Should have AssistantText"
+    );
+    assert!(
+        items.iter().any(|i| matches!(i, loupe::run::TranscriptItem::ToolUse { .. })),
+        "Should have ToolUse"
+    );
+    assert!(
+        items.iter().any(|i| matches!(i, loupe::run::TranscriptItem::UserMessage { .. })),
+        "Should have UserMessage"
+    );
+    assert!(result.is_some(), "Should have a session result");
+}
+
+#[test]
+fn detect_format_from_fixtures() {
+    use loupe::parser::{detect_format, Format};
+
+    let claude_first = std::fs::read_to_string("tests/fixtures/minimal_session.jsonl")
+        .unwrap()
+        .lines()
+        .next()
+        .unwrap()
+        .to_string();
+    assert_eq!(detect_format(&claude_first), Some(Format::ClaudeCode));
+
+    let codex_first = std::fs::read_to_string("tests/fixtures/codex_session.jsonl")
+        .unwrap()
+        .lines()
+        .next()
+        .unwrap()
+        .to_string();
+    assert_eq!(detect_format(&codex_first), Some(Format::Codex));
+}
+
+#[test]
 fn parse_malformed_lines_dont_panic() {
     let lines = vec![
         "",
