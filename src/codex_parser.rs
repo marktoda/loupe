@@ -1,7 +1,7 @@
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde_json::Value;
 
-use crate::parser::{extract_tool_summary, LineMeta, ParseResult, TranscriptParser, truncate_str};
+use crate::parser::{extract_tool_summary, parse_timestamp, LineMeta, ParseResult, TranscriptParser, truncate_str};
 use crate::run::{SessionResult, TranscriptItem};
 
 /// Parser for Codex CLI's JSONL transcript format.
@@ -26,11 +26,7 @@ impl TranscriptParser for CodexParser {
 
         let mut meta = LineMeta::default();
 
-        meta.timestamp = v
-            .get("timestamp")
-            .and_then(|t| t.as_str())
-            .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&Utc));
+        meta.timestamp = parse_timestamp(&v, "timestamp");
 
         match event_type {
             "session_meta" => {
@@ -63,12 +59,7 @@ impl TranscriptParser for CodexParser {
 fn parse_session_meta(payload: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
     meta.session_id = payload.get("id").and_then(|s| s.as_str()).map(String::from);
 
-    let timestamp = payload
-        .get("timestamp")
-        .and_then(|t| t.as_str())
-        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(Utc::now);
+    let timestamp = parse_timestamp(payload, "timestamp").unwrap_or_else(Utc::now);
     meta.timestamp = Some(timestamp);
 
     vec![TranscriptItem::SessionStart {
@@ -303,11 +294,10 @@ fn extract_codex_tool_summary(name: &str, args: Option<&Value>) -> String {
         "update_plan" => {
             return "update plan".to_string();
         }
-        _ => {
-            return extract_tool_summary(name, Some(args));
-        }
+        _ => {}
     }
-    name.to_string()
+    // Fall through to shared summary extraction (first-key heuristic)
+    extract_tool_summary(name, Some(args))
 }
 
 #[cfg(test)]

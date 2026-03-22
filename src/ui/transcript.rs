@@ -84,6 +84,38 @@ fn truncate(s: &str, max_chars: usize) -> String {
     }
 }
 
+/// Render a labeled, soft-wrapped text block with optional search highlighting.
+fn render_text_block(
+    text: &str,
+    label: &'static str,
+    label_style: Style,
+    content_cols: usize,
+    search_active: bool,
+    query: &str,
+    default_style: Style,
+    lines: &mut Vec<Line<'static>>,
+) {
+    for (li, source_line) in text.lines().enumerate() {
+        let wrapped = soft_wrap(source_line, content_cols);
+        for (wi, chunk) in wrapped.iter().enumerate() {
+            let content_spans = if search_active {
+                highlight_text(chunk, query, default_style)
+            } else {
+                vec![Span::styled(chunk.to_string(), default_style)]
+            };
+            let prefix = if li == 0 && wi == 0 {
+                Span::styled(label, label_style)
+            } else {
+                Span::raw("         ")
+            };
+            let mut spans = vec![prefix];
+            spans.extend(content_spans);
+            lines.push(Line::from(spans));
+        }
+    }
+    lines.push(Line::default());
+}
+
 pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: bool) {
     let border_style = if focused {
         Style::default().fg(Color::Blue)
@@ -148,26 +180,8 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 } else {
                     text.clone()
                 };
-                // Pre-wrap: split each source line to fit within content_cols
-                for (li, source_line) in display.lines().enumerate() {
-                    let wrapped = soft_wrap(source_line, content_cols);
-                    for (wi, chunk) in wrapped.iter().enumerate() {
-                        let content_spans = if search_active {
-                            highlight_text(chunk, &query, default)
-                        } else {
-                            vec![Span::styled(chunk.to_string(), default)]
-                        };
-                        let prefix = if li == 0 && wi == 0 {
-                            Span::styled("ASSIST   ", label_bold(Color::Cyan))
-                        } else {
-                            Span::raw("         ")
-                        };
-                        let mut spans = vec![prefix];
-                        spans.extend(content_spans);
-                        lines.push(Line::from(spans));
-                    }
-                }
-                lines.push(Line::default());
+                render_text_block(&display, "ASSIST   ", label_bold(Color::Cyan),
+                    content_cols, search_active, &query, default, &mut lines);
             }
             TranscriptItem::ToolUse {
                 name,
@@ -368,25 +382,8 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 lines.push(Line::default());
             }
             TranscriptItem::UserMessage { text } => {
-                for (li, source_line) in text.lines().enumerate() {
-                    let wrapped = soft_wrap(source_line, content_cols);
-                    for (wi, chunk) in wrapped.iter().enumerate() {
-                        let content_spans = if search_active {
-                            highlight_text(chunk, &query, default)
-                        } else {
-                            vec![Span::styled(chunk.to_string(), default)]
-                        };
-                        let prefix = if li == 0 && wi == 0 {
-                            Span::styled("USER     ", label_bold(Color::Blue))
-                        } else {
-                            Span::raw("         ")
-                        };
-                        let mut spans = vec![prefix];
-                        spans.extend(content_spans);
-                        lines.push(Line::from(spans));
-                    }
-                }
-                lines.push(Line::default());
+                render_text_block(text, "USER     ", label_bold(Color::Blue),
+                    content_cols, search_active, &query, default, &mut lines);
             }
         }
     }

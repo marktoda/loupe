@@ -85,8 +85,12 @@ impl App {
                         RunStatus::Completed
                     };
                     run.ended_at = Some(Utc::now());
-                    run.stats.cost_usd = Some(result.total_cost_usd);
-                    run.stats.num_turns = result.num_turns;
+                    if result.total_cost_usd > 0.0 {
+                        run.stats.cost_usd = Some(result.total_cost_usd);
+                    }
+                    if result.num_turns > 0 {
+                        run.stats.num_turns = result.num_turns;
+                    }
                     run.result = Some(result);
                 }
             }

@@ -115,6 +115,14 @@ pub fn parse_line(line: &str) -> ParseResult {
     }
 }
 
+/// Parse an RFC3339 timestamp from a JSON object field.
+pub fn parse_timestamp(v: &Value, field: &str) -> Option<DateTime<Utc>> {
+    v.get(field)
+        .and_then(|t| t.as_str())
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+}
+
 /// Truncate a string to at most `max` bytes, respecting UTF-8 char boundaries.
 pub fn truncate_str(s: &str, max: usize) -> &str {
     if s.len() <= max {
@@ -131,12 +139,7 @@ pub fn truncate_str(s: &str, max: usize) -> &str {
 fn parse_system(v: &Value, meta: &mut LineMeta) -> Vec<TranscriptItem> {
     let subtype = v.get("subtype").and_then(|s| s.as_str()).unwrap_or("");
 
-    // Try to extract a timestamp from various possible fields
-    meta.timestamp = v
-        .get("timestamp")
-        .and_then(|t| t.as_str())
-        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&Utc));
+    meta.timestamp = parse_timestamp(v, "timestamp");
 
     match subtype {
         "init" => {
