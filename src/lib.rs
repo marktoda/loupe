@@ -1,4 +1,5 @@
 pub mod app;
+pub mod codex_parser;
 pub mod events;
 pub mod parser;
 pub mod run;
