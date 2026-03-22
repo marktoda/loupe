@@ -209,27 +209,37 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 }
             }
             TranscriptItem::ToolResult {
-                tool_name: _,
+                tool_name,
                 summary: _,
                 content,
                 duration_ms: _,
             } => {
-                if app.expanded {
+                let is_patch = tool_name == "apply_patch";
+                // Always show apply_patch content; other results need expanded mode
+                if is_patch || app.expanded {
                     if let Some(content_text) = content {
-                        lines.push(Line::from(vec![
-                            Span::raw("         "),
-                            Span::styled("┌─ result ─", dim),
-                        ]));
-                        for content_line in content_text.lines().take(20) {
+                        if is_patch {
+                            let patch_lines = super::highlight::render_patch(
+                                content_text,
+                                content_cols,
+                            );
+                            lines.extend(patch_lines);
+                        } else {
                             lines.push(Line::from(vec![
                                 Span::raw("         "),
-                                Span::styled(format!("│ {content_line}"), dim),
+                                Span::styled("┌─ result ─", dim),
+                            ]));
+                            for content_line in content_text.lines().take(20) {
+                                lines.push(Line::from(vec![
+                                    Span::raw("         "),
+                                    Span::styled(format!("│ {content_line}"), dim),
+                                ]));
+                            }
+                            lines.push(Line::from(vec![
+                                Span::raw("         "),
+                                Span::styled("└──────────", dim),
                             ]));
                         }
-                        lines.push(Line::from(vec![
-                            Span::raw("         "),
-                            Span::styled("└──────────", dim),
-                        ]));
                     }
                 }
             }

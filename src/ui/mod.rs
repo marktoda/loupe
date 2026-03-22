@@ -1,4 +1,5 @@
 pub mod help;
+pub mod highlight;
 pub mod run_list;
 pub mod run_summary;
 pub mod search;
