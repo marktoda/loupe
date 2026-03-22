@@ -322,7 +322,11 @@ pub fn extract_tool_summary(name: &str, input: Option<&Value>) -> String {
         }
         "Edit" => {
             if let Some(path) = input.get("file_path").and_then(|v| v.as_str()) {
-                return path.to_string();
+                let old = input.get("old_string").and_then(|v| v.as_str()).unwrap_or("");
+                let new = input.get("new_string").and_then(|v| v.as_str()).unwrap_or("");
+                let removed = old.lines().count();
+                let added = new.lines().count();
+                return format!("{path}  +{added} -{removed}");
             }
         }
         "Write" => {

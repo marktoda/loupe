@@ -8,6 +8,28 @@ use syntect::parsing::SyntaxSet;
 static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
 static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
 
+/// Convert a Claude Code Edit tool input (old_string/new_string) into patch format
+/// and render with syntax highlighting.
+pub fn render_edit(input: &serde_json::Value, content_cols: usize) -> Vec<Line<'static>> {
+    let file_path = input.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
+    let old = input.get("old_string").and_then(|v| v.as_str()).unwrap_or("");
+    let new = input.get("new_string").and_then(|v| v.as_str()).unwrap_or("");
+
+    let mut patch = format!("*** Update File: {file_path}\n@@\n");
+    for line in old.lines() {
+        patch.push('-');
+        patch.push_str(line);
+        patch.push('\n');
+    }
+    for line in new.lines() {
+        patch.push('+');
+        patch.push_str(line);
+        patch.push('\n');
+    }
+
+    render_patch(&patch, content_cols)
+}
+
 /// Render a Codex apply_patch as diff-colored, syntax-highlighted lines.
 pub fn render_patch(patch: &str, content_cols: usize) -> Vec<Line<'static>> {
     let mut lines = Vec::new();

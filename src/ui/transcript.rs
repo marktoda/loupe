@@ -199,12 +199,21 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 if app.expanded
                     && let Some(input_val) = input
                 {
-                    let json_str = serde_json::to_string_pretty(input_val).unwrap_or_default();
-                    for json_line in json_str.lines().take(15) {
-                        lines.push(Line::from(vec![
-                            Span::raw("         "),
-                            Span::styled(format!("│ {json_line}"), dim),
-                        ]));
+                    if name == "Edit" {
+                        let edit_lines = super::highlight::render_edit(
+                            input_val,
+                            content_cols,
+                        );
+                        lines.extend(edit_lines);
+                    } else {
+                        let json_str =
+                            serde_json::to_string_pretty(input_val).unwrap_or_default();
+                        for json_line in json_str.lines().take(15) {
+                            lines.push(Line::from(vec![
+                                Span::raw("         "),
+                                Span::styled(format!("│ {json_line}"), dim),
+                            ]));
+                        }
                     }
                 }
             }
