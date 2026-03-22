@@ -13,6 +13,7 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 mod app;
+mod codex_parser;
 mod events;
 mod parser;
 mod run;

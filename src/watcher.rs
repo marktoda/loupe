@@ -6,15 +6,30 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::sync::CancellationToken;
 
+use crate::codex_parser::CodexParser;
 use crate::events::AppEvent;
+use crate::parser::{self, ClaudeCodeParser, Format, TranscriptParser};
 use crate::run::{RunStats, TranscriptItem};
-use crate::streaming::DeltaAccumulator;
-use crate::{parser, streaming};
+use crate::streaming::{self, DeltaAccumulator};
 
 struct WatchedFile {
     run_id: usize,
     bytes_read: u64,
     has_result: bool,
+    format: Option<Format>,
+    parser: Option<Box<dyn TranscriptParser>>,
+}
+
+fn make_parser(format: Format) -> Box<dyn TranscriptParser> {
+    match format {
+        Format::ClaudeCode => Box::new(ClaudeCodeParser),
+        Format::Codex => Box::new(CodexParser),
+    }
+}
+
+fn detect_and_make_parser(first_line: &str) -> (Format, Box<dyn TranscriptParser>) {
+    let format = parser::detect_format(first_line).unwrap_or(Format::ClaudeCode);
+    (format, make_parser(format))
 }
 
 fn discover_files(dir: &PathBuf) -> color_eyre::Result<Vec<PathBuf>> {
@@ -81,13 +96,25 @@ fn parse_file_initial(
     let mut session_id = None;
     let mut started_at = None;
 
+    let first_line = content.lines().next();
+    if first_line.is_none() {
+        return Ok(WatchedFile {
+            run_id,
+            bytes_read: 0,
+            has_result: false,
+            format: None,
+            parser: None,
+        });
+    }
+    let (format, file_parser) = detect_and_make_parser(first_line.unwrap());
+
     for (i, line) in content.lines().enumerate() {
         if line.is_empty() {
             continue;
         }
         stats.total_lines += 1;
 
-        match parser::parse_line(line) {
+        match file_parser.parse_line(line) {
             parser::ParseResult::Parsed(new_items, meta) => {
                 has_result |= process_parsed_line(
                     &mut items,
@@ -126,6 +153,8 @@ fn parse_file_initial(
         run_id,
         bytes_read,
         has_result,
+        format: Some(format),
+        parser: Some(file_parser),
     })
 }
 
@@ -152,6 +181,17 @@ fn parse_file_incremental(
     let mut new_content = String::new();
     file.read_to_string(&mut new_content)?;
 
+    if wf.parser.is_none() {
+        if let Some(first_line) = new_content.lines().next() {
+            let (format, file_parser) = detect_and_make_parser(first_line);
+            wf.format = Some(format);
+            wf.parser = Some(file_parser);
+        } else {
+            return Ok(());
+        }
+    }
+    let file_parser = wf.parser.as_ref().unwrap();
+
     let mut items = Vec::new();
     let mut stats = RunStats::default();
     let mut session_id = None;
@@ -165,8 +205,9 @@ fn parse_file_incremental(
         }
         stats.total_lines += 1;
 
-        // For the active run, try Tier 2 streaming first
+        // For the active run, try Tier 2 streaming first (Claude Code only)
         if is_active
+            && wf.format == Some(Format::ClaudeCode)
             && let Ok(v) = serde_json::from_str::<serde_json::Value>(line)
             && v.get("type").and_then(|t| t.as_str()) == Some("stream_event")
         {
@@ -176,7 +217,7 @@ fn parse_file_incremental(
             continue;
         }
 
-        match parser::parse_line(line) {
+        match file_parser.parse_line(line) {
             parser::ParseResult::Parsed(new_items, meta) => {
                 wf.has_result |= process_parsed_line(
                     &mut items,
