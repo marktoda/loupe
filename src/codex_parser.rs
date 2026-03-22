@@ -100,17 +100,8 @@ fn parse_event_msg(payload: &Value, meta: &mut LineMeta) -> Option<Vec<Transcrip
                 .to_string();
             Some(vec![TranscriptItem::UserMessage { text: message }])
         }
-        "agent_message" => {
-            let message = payload
-                .get("message")
-                .and_then(|m| m.as_str())
-                .unwrap_or("")
-                .to_string();
-            Some(vec![TranscriptItem::AssistantText {
-                text: message,
-                is_partial: false,
-            }])
-        }
+        // Skip agent_message — duplicates response_item(message, role: assistant)
+        "agent_message" => None,
         "task_started" => Some(vec![TranscriptItem::SystemEvent {
             label: "task_started".to_string(),
             detail: payload
@@ -340,14 +331,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_agent_message() {
+    fn skip_agent_message() {
         let parser = CodexParser;
         let line = r#"{"timestamp":"2026-03-22T19:54:06.507Z","type":"event_msg","payload":{"type":"agent_message","message":"Working on it.","phase":"commentary"}}"#;
-        let ParseResult::Parsed(items, _) = parser.parse_line(line) else {
-            panic!("expected Parsed");
-        };
-        assert_eq!(items.len(), 1);
-        assert!(matches!(&items[0], TranscriptItem::AssistantText { text, .. } if text == "Working on it."));
+        assert!(matches!(parser.parse_line(line), ParseResult::Skipped));
     }
 
     #[test]
