@@ -155,12 +155,10 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
         return;
     }
 
-    let search_active = app.search.highlights_visible && !app.search.query.is_empty();
     let content_cols = (inner.width as usize).saturating_sub(LABEL_WIDTH);
     let run_id = app.selected_run;
     let item_count = run.items.len();
     let expand_mode = app.expand_mode;
-    let search_query = app.search.query.clone();
     let search_visible = app.search.highlights_visible;
 
     // Rebuild cached lines only when content changes — not on scroll
@@ -168,11 +166,12 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
         run_id,
         item_count,
         expand_mode,
-        &search_query,
+        &app.search.query,
         search_visible,
         content_cols,
     ) {
-        let query = search_query.clone();
+        let search_active = search_visible && !app.search.query.is_empty();
+        let query = app.search.query.clone();
         let label_bold =
             |color: Color| Style::default().fg(color).add_modifier(Modifier::BOLD);
         let dim = Style::default().add_modifier(Modifier::DIM);
@@ -435,12 +434,13 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
         }
         }
 
+        let query_for_cache = app.search.query.clone();
         app.transcript_cache.store(
             lines,
             run_id,
             item_count,
             expand_mode,
-            &search_query,
+            &query_for_cache,
             search_visible,
             content_cols,
         );
@@ -458,10 +458,14 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
         app.scroll_offset = max_scroll;
     }
 
-    // Only clone the visible slice instead of the entire transcript
+    // Render visible lines directly into buffer — no cloning
     let start = app.scroll_offset;
-    let end = (start + visible).min(total);
-    let visible_lines: Vec<Line> = app.transcript_cache.lines[start..end].to_vec();
-    let paragraph = Paragraph::new(visible_lines);
-    frame.render_widget(paragraph, inner);
+    let buf = frame.buffer_mut();
+    for (i, y) in (inner.y..inner.bottom()).enumerate() {
+        let line_idx = start + i;
+        if line_idx < total {
+            let line = &app.transcript_cache.lines[line_idx];
+            buf.set_line(inner.x, y, line, inner.width);
+        }
+    }
 }
