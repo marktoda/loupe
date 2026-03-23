@@ -156,18 +156,33 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
     }
 
     let search_active = app.search.highlights_visible && !app.search.query.is_empty();
-    let query = app.search.query.clone();
-
-    let label_bold = |color: Color| Style::default().fg(color).add_modifier(Modifier::BOLD);
-    let dim = Style::default().add_modifier(Modifier::DIM);
-    let default = Style::default();
-
-    // Content area width for text wrapping (minus the 9-char label column)
     let content_cols = (inner.width as usize).saturating_sub(LABEL_WIDTH);
+    let run_id = app.selected_run;
+    let item_count = run.items.len();
+    let expand_mode = app.expand_mode;
+    let search_query = app.search.query.clone();
+    let search_visible = app.search.highlights_visible;
 
-    let mut lines: Vec<Line> = Vec::new();
+    // Rebuild cached lines only when content changes — not on scroll
+    if !app.transcript_cache.is_valid(
+        run_id,
+        item_count,
+        expand_mode,
+        &search_query,
+        search_visible,
+        content_cols,
+    ) {
+        let query = search_query.clone();
+        let label_bold =
+            |color: Color| Style::default().fg(color).add_modifier(Modifier::BOLD);
+        let dim = Style::default().add_modifier(Modifier::DIM);
+        let default = Style::default();
 
-    for item in &run.items {
+        let mut lines: Vec<Line> = Vec::new();
+
+        // Re-borrow run inside cache rebuild scope
+        let run = app.runs.get(run_id.unwrap_or(0)).unwrap();
+        for item in &run.items {
         match item {
             TranscriptItem::SessionStart { model, tools, .. } => {
                 lines.push(Line::from(vec![
@@ -418,22 +433,35 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                     content_cols, search_active, &query, default, &mut lines);
             }
         }
+        }
+
+        app.transcript_cache.store(
+            lines,
+            run_id,
+            item_count,
+            expand_mode,
+            &search_query,
+            search_visible,
+            content_cols,
+        );
     }
 
-    // No Wrap — we pre-wrapped above, so lines.len() IS the rendered row count.
-    let total = lines.len();
+    // Use cached lines for rendering — scrolling is now free
+    let total = app.transcript_cache.lines.len();
     let visible = inner.height as usize;
 
     if app.auto_follow && total > visible {
         app.scroll_offset = total - visible;
     }
-    // Clamp scroll to valid range
     let max_scroll = total.saturating_sub(visible);
     if app.scroll_offset > max_scroll {
         app.scroll_offset = max_scroll;
     }
 
-    let paragraph =
-        Paragraph::new(lines).scroll((app.scroll_offset.min(u16::MAX as usize) as u16, 0));
+    // Only clone the visible slice instead of the entire transcript
+    let start = app.scroll_offset;
+    let end = (start + visible).min(total);
+    let visible_lines: Vec<Line> = app.transcript_cache.lines[start..end].to_vec();
+    let paragraph = Paragraph::new(visible_lines);
     frame.render_widget(paragraph, inner);
 }

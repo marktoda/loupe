@@ -1,3 +1,5 @@
+use ratatui::text::Line;
+
 use crate::events::{AppEvent, FocusPane};
 use crate::run::{Run, RunStatus, TranscriptItem};
 use crate::ui::search::SearchState;
@@ -14,6 +16,59 @@ pub struct App {
     pub should_quit: bool,
     pub dirty: bool,
     pub expand_mode: ExpandMode,
+    pub transcript_cache: TranscriptCache,
+}
+
+/// Cached rendered transcript lines, invalidated when content changes.
+#[derive(Default)]
+pub struct TranscriptCache {
+    pub lines: Vec<Line<'static>>,
+    run_id: Option<usize>,
+    item_count: usize,
+    expand_mode: ExpandMode,
+    search_query: String,
+    search_visible: bool,
+    content_cols: usize,
+}
+
+impl TranscriptCache {
+    /// Check if cache is still valid for the given parameters.
+    pub fn is_valid(
+        &self,
+        run_id: Option<usize>,
+        item_count: usize,
+        expand_mode: ExpandMode,
+        search_query: &str,
+        search_visible: bool,
+        content_cols: usize,
+    ) -> bool {
+        self.run_id == run_id
+            && self.item_count == item_count
+            && self.expand_mode == expand_mode
+            && self.search_query == search_query
+            && self.search_visible == search_visible
+            && self.content_cols == content_cols
+    }
+
+    /// Store new cache state.
+    pub fn store(
+        &mut self,
+        lines: Vec<Line<'static>>,
+        run_id: Option<usize>,
+        item_count: usize,
+        expand_mode: ExpandMode,
+        search_query: &str,
+        search_visible: bool,
+        content_cols: usize,
+    ) {
+        self.lines = lines;
+        self.run_id = run_id;
+        self.item_count = item_count;
+        self.expand_mode = expand_mode;
+        self.search_query = search_query.to_string();
+        self.search_visible = search_visible;
+        self.content_cols = content_cols;
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -43,6 +98,7 @@ impl App {
             should_quit: false,
             dirty: true,
             expand_mode: ExpandMode::Off,
+            transcript_cache: TranscriptCache::default(),
         }
     }
 
