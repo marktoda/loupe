@@ -10,26 +10,7 @@ Loupe gives you a read-only TUI over those JSONL logs. Point it at a directory, 
 loupe ./autoroute/logs/
 ```
 
-```
-┌ Runs ──────────────┐┌ Transcript ──────────────────────────────────────────┐
-│ ✓ session-0319a    ││ SESSION  claude-opus-4-6 · 14 tools                  │
-│   21m ok           ││                                                      │
-│                    ││ ASSIST   Starting the autoroute loop. Let me read    │
-│ ✓ session-0319b    ││          the context files first.                    │
-│   18m ok           ││                                                      │
-│                    ││ TOOL     Read  autoroute/program.md                  │
-│ ✗ session-0319c    ││ TOOL     Read  autoroute/SUMMARY.md                  │
-│   2m failed        ││                                                      │
-│                    ││ AGENT    Iteration 12: residual capacity...           │
-│ ● session-0319d    ││   ├─    Read  src/routing/ssp/mod.rs                 │
-│   running          ││   ├─    Edit  src/routing/ssp/mod.rs                 │
-│                    ││   └─    completed · 4m · 9 tools                     │
-│                    ││                                                      │
-│                    ││ ASSIST   Results: composite 20.485 (+15 bps).▌       │
-├────────────────────┤├──────────────────────────────────────────────────────┤
-│ 4 runs │ 12m05s │ $4.82 │ follow  [viewer] Tab  / search  ? help  q quit │
-└────────────────────┘└──────────────────────────────────────────────────────┘
-```
+![Loupe screenshot](assets/loupe-screenshot.png)
 
 ## Install
 

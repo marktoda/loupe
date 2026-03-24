@@ -1,73 +1,13 @@
 use crate::app::{App, ExpandMode};
 use crate::run::TranscriptItem;
+use crate::ui::markdown::{self, MarkdownRenderOptions};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
 const LABEL_WIDTH: usize = 9; // "ASSIST   " etc.
 
-/// Split `text` into styled spans, highlighting all case-insensitive occurrences of `query`.
-fn highlight_text(text: &str, query: &str, base_style: Style) -> Vec<Span<'static>> {
-    if query.is_empty() {
-        return vec![Span::styled(text.to_string(), base_style)];
-    }
-    let query_lower = query.to_lowercase();
-    let text_lower = text.to_lowercase();
-    let mut spans = Vec::new();
-    let mut last_end = 0;
-
-    for (start, _) in text_lower.match_indices(&query_lower as &str) {
-        let end = start + query_lower.len();
-        // Skip matches whose byte offsets don't land on char boundaries in the
-        // original text (can happen when lowercasing changes byte length, e.g. ß→ss).
-        if !text.is_char_boundary(start)
-            || !text.is_char_boundary(end)
-            || !text.is_char_boundary(last_end)
-        {
-            continue;
-        }
-        if start > last_end {
-            spans.push(Span::styled(text[last_end..start].to_string(), base_style));
-        }
-        spans.push(Span::styled(
-            text[start..end].to_string(),
-            Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        ));
-        last_end = end;
-    }
-    if last_end < text.len() && text.is_char_boundary(last_end) {
-        spans.push(Span::styled(text[last_end..].to_string(), base_style));
-    }
-    if spans.is_empty() {
-        spans.push(Span::styled(text.to_string(), base_style));
-    }
-    spans
-}
-
-/// Soft-wrap a string to fit within `max_cols` columns.
-/// Returns a vec of string slices, each fitting within the width.
-/// Uses char boundaries (not grapheme clusters) — good enough for terminal text.
 fn soft_wrap(text: &str, max_cols: usize) -> Vec<&str> {
-    if max_cols == 0 || text.is_empty() {
-        return vec![text];
-    }
-    let mut result = Vec::new();
-    let mut remaining = text;
-    while !remaining.is_empty() {
-        match remaining.char_indices().nth(max_cols) {
-            None => {
-                result.push(remaining);
-                break;
-            }
-            Some((byte_end, _)) => {
-                result.push(&remaining[..byte_end]);
-                remaining = &remaining[byte_end..];
-            }
-        }
-    }
-    result
+    markdown::soft_wrap_plain(text, max_cols)
 }
 
 /// Truncate a string to fit within `max_chars` characters, appending `…` if truncated.
@@ -82,38 +22,6 @@ fn truncate(s: &str, max_chars: usize) -> String {
         let truncated: String = s.chars().take(max_chars.saturating_sub(1)).collect();
         format!("{truncated}…")
     }
-}
-
-/// Render a labeled, soft-wrapped text block with optional search highlighting.
-fn render_text_block(
-    text: &str,
-    label: &'static str,
-    label_style: Style,
-    content_cols: usize,
-    search_active: bool,
-    query: &str,
-    default_style: Style,
-    lines: &mut Vec<Line<'static>>,
-) {
-    for (li, source_line) in text.lines().enumerate() {
-        let wrapped = soft_wrap(source_line, content_cols);
-        for (wi, chunk) in wrapped.iter().enumerate() {
-            let content_spans = if search_active {
-                highlight_text(chunk, query, default_style)
-            } else {
-                vec![Span::styled(chunk.to_string(), default_style)]
-            };
-            let prefix = if li == 0 && wi == 0 {
-                Span::styled(label, label_style)
-            } else {
-                Span::raw("         ")
-            };
-            let mut spans = vec![prefix];
-            spans.extend(content_spans);
-            lines.push(Line::from(spans));
-        }
-    }
-    lines.push(Line::default());
 }
 
 pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: bool) {
@@ -199,8 +107,17 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 } else {
                     text.clone()
                 };
-                render_text_block(&display, "ASSIST   ", label_bold(Color::Cyan),
-                    content_cols, search_active, &query, default, &mut lines);
+                lines.extend(markdown::render_markdown_block(
+                    &display,
+                    &MarkdownRenderOptions {
+                        label: "ASSIST   ",
+                        label_style: label_bold(Color::Cyan),
+                        content_cols,
+                        base_style: default,
+                        search_query: &query,
+                        search_active,
+                    },
+                ));
             }
             TranscriptItem::ToolUse {
                 name,
@@ -428,8 +345,17 @@ pub fn render_transcript(frame: &mut Frame, area: Rect, app: &mut App, focused: 
                 lines.push(Line::default());
             }
             TranscriptItem::UserMessage { text } => {
-                render_text_block(text, "USER     ", label_bold(Color::Blue),
-                    content_cols, search_active, &query, default, &mut lines);
+                lines.extend(markdown::render_markdown_block(
+                    text,
+                    &MarkdownRenderOptions {
+                        label: "USER     ",
+                        label_style: label_bold(Color::Blue),
+                        content_cols,
+                        base_style: default,
+                        search_query: &query,
+                        search_active,
+                    },
+                ));
             }
         }
         }
